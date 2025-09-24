@@ -11,14 +11,29 @@ const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 
 
+
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
   loginError.style.display = 'none';
-  // Login con Supabase
+
+  // 1. Cerca email associata allo username
+  const { data: profiles, error: profileError } = await supabaseClient
+    .from('profiles')
+    .select('email')
+    .eq('username', username)
+    .single();
+
+  if (profileError || !profiles || !profiles.email) {
+    loginError.textContent = 'Username non trovato';
+    loginError.style.display = 'block';
+    return;
+  }
+
+  // 2. Login con email trovata
   const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: username,
+    email: profiles.email,
     password: password
   });
   if (error) {
