@@ -1,10 +1,107 @@
+// Navigazione tra le pagine
+const sections = {
+  dashboard: document.getElementById('dashboard-section'),
+  partite: document.getElementById('partite-section'),
+  giocatori: document.getElementById('giocatori-section'),
+  allenamenti: document.getElementById('allenamenti-section'),
+  statistiche: document.getElementById('statistiche-section'),
+  convocati: document.getElementById('convocati-section')
+};
+
+function showSection(page) {
+  Object.values(sections).forEach(sec => sec.style.display = 'none');
+  if (sections[page]) sections[page].style.display = 'block';
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const page = btn.getAttribute('data-page');
+    if (page) {
+      showSection(page);
+      if (page === 'dashboard') loadDashboard();
+      if (page === 'partite') loadPartite();
+      if (page === 'giocatori') loadGiocatori();
+      if (page === 'allenamenti') loadAllenamenti();
+      if (page === 'statistiche') loadStatistiche();
+      if (page === 'convocati') loadConvocati();
+    }
+  });
+});
+
+// Visualizzazione dati per ogni sezione (placeholder, da completare con fetch Supabase)
+function loadPartite() {
+  const el = document.getElementById('partite-section');
+  el.innerHTML = '<h2>Partite</h2><div>Caricamento partite...</div>';
+  supabaseClient.from('partite').select('*').then(({ data, error }) => {
+    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
+    if (!data || data.length === 0) { el.innerHTML += '<div>Nessuna partita trovata.</div>'; return; }
+    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
+    data.forEach(p => {
+      html += `<tr><td>${p.data||''}</td><td>${p.avversario||''}</td><td>${p.punti||''}</td><td>${p.risultato||''}</td></tr>`;
+    });
+    html += '</table>';
+    el.innerHTML = '<h2>Partite</h2>' + html;
+  });
+}
+
+function loadGiocatori() {
+  const el = document.getElementById('giocatori-section');
+  el.innerHTML = '<h2>Giocatori</h2><div>Caricamento giocatori...</div>';
+  supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
+    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
+    if (!data || data.length === 0) { el.innerHTML += '<div>Nessun giocatore trovato.</div>'; return; }
+    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+    html += '<tr style="background:#b71c1c;color:#fff;"><th>Nome</th><th>Cognome</th><th>Ruolo</th><th>Numero</th></tr>';
+    data.forEach(g => {
+      html += `<tr><td>${g.nome||''}</td><td>${g.cognome||''}</td><td>${g.ruolo||''}</td><td>${g.numero||''}</td></tr>`;
+    });
+    html += '</table>';
+    el.innerHTML = '<h2>Giocatori</h2>' + html;
+  });
+}
+
+function loadAllenamenti() {
+  const el = document.getElementById('allenamenti-section');
+  el.innerHTML = '<h2>Allenamenti</h2><div>Caricamento allenamenti...</div>';
+  supabaseClient.from('allenamenti').select('*').then(({ data, error }) => {
+    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
+    if (!data || data.length === 0) { el.innerHTML += '<div>Nessun allenamento trovato.</div>'; return; }
+    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Luogo</th><th>Note</th></tr>';
+    data.forEach(a => {
+      html += `<tr><td>${a.data||''}</td><td>${a.luogo||''}</td><td>${a.note||''}</td></tr>`;
+    });
+    html += '</table>';
+    el.innerHTML = '<h2>Allenamenti</h2>' + html;
+  });
+}
+
+function loadStatistiche() {
+  const el = document.getElementById('statistiche-section');
+  el.innerHTML = '<h2>Statistiche</h2><div>Caricamento statistiche...</div>';
+  // Placeholder: da implementare logica statistiche reali
+  el.innerHTML += '<div>Funzionalità in sviluppo.</div>';
+}
+
+function loadConvocati() {
+  const el = document.getElementById('convocati-section');
+  el.innerHTML = '<h2>Convocati</h2><div>Caricamento convocati...</div>';
+  // Placeholder: da implementare logica convocati reali
+  el.innerHTML += '<div>Funzionalità in sviluppo.</div>';
+}
+
+// Mostra dashboard di default dopo login
+function showDefaultAfterLogin() {
+  showSection('dashboard');
+  loadDashboard();
+}
 // Controllo sessione all'avvio
 window.addEventListener('DOMContentLoaded', async () => {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (sessionData && sessionData.session) {
-    loginSection.style.display = 'none';
-    dashboardSection.style.display = 'block';
-    loadDashboard();
+  loginSection.style.display = 'none';
+  showDefaultAfterLogin();
   } else {
     loginSection.style.display = 'block';
     dashboardSection.style.display = 'none';
@@ -63,6 +160,7 @@ logoutBtn.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   dashboardSection.style.display = 'none';
   loginSection.style.display = 'block';
+  showSection('login');
 });
 
 // Carica dati dashboard
@@ -70,7 +168,7 @@ logoutBtn.addEventListener('click', async () => {
 async function loadDashboard() {
   const dashboardContent = document.getElementById('dashboard-content');
   dashboardContent.textContent = 'Caricamento...';
-  // Fetch dati partite
+  // Fetch dati partite (come anteprima dashboard)
   const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
     dashboardContent.textContent = 'Errore: ' + error.message;
@@ -80,10 +178,10 @@ async function loadDashboard() {
     dashboardContent.textContent = 'Nessuna partita trovata.';
     return;
   }
-  // Visualizza tabella partite stile app Python
-  let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+  let html = '<h2>Ultime Partite</h2>';
+  html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
   html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
-  data.forEach(partita => {
+  data.slice(-5).reverse().forEach(partita => {
     html += `<tr style="border-bottom:1px solid #eee;">
       <td>${partita.data || ''}</td>
       <td>${partita.avversario || ''}</td>

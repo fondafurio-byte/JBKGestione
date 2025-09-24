@@ -13,23 +13,37 @@
         <header>
             <h1>JBK Gestione</h1>
         </header>
-        <main>
-            <section id="login-section">
-                <h2>Login</h2>
-                <form id="login-form">
-                    <input type="text" id="username" placeholder="Username" required>
-                    <input type="password" id="password" placeholder="Password" required>
-                    <button type="submit">Accedi</button>
-                </form>
-                <div id="login-error" style="color:red;display:none;"></div>
-                <div id="debug-msg" style="color:blue; margin-top:1rem;"></div>
-            </section>
-            <section id="dashboard-section" style="display:none;">
-                <h2>Dashboard</h2>
-                <div id="dashboard-content"></div>
-                <button id="logout-btn">Logout</button>
-            </section>
-        </main>
+        <div id="main-layout">
+            <nav id="sidebar">
+                <ul>
+                    <li><button class="nav-btn" data-page="dashboard">Dashboard</button></li>
+                    <li><button class="nav-btn" data-page="partite">Partite</button></li>
+                    <li><button class="nav-btn" data-page="giocatori">Giocatori</button></li>
+                    <li><button class="nav-btn" data-page="allenamenti">Allenamenti</button></li>
+                    <li><button class="nav-btn" data-page="statistiche">Statistiche</button></li>
+                    <li><button class="nav-btn" data-page="convocati">Convocati</button></li>
+                    <li><button id="logout-btn">Logout</button></li>
+                </ul>
+            </nav>
+            <main id="content-area">
+                <section id="login-section">
+                    <h2>Login</h2>
+                    <form id="login-form">
+                        <input type="text" id="username" placeholder="Username" required>
+                        <input type="password" id="password" placeholder="Password" required>
+                        <button type="submit">Accedi</button>
+                    </form>
+                    <div id="login-error" style="color:red;display:none;"></div>
+                    <div id="debug-msg" style="color:blue; margin-top:1rem;"></div>
+                </section>
+                <section id="dashboard-section" style="display:none;"></section>
+                <section id="partite-section" style="display:none;"></section>
+                <section id="giocatori-section" style="display:none;"></section>
+                <section id="allenamenti-section" style="display:none;"></section>
+                <section id="statistiche-section" style="display:none;"></section>
+                <section id="convocati-section" style="display:none;"></section>
+            </main>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="app.js"></script>
