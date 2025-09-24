@@ -1,21 +1,11 @@
 {
   "version": 2,
-  "name": "jbk-gestione",
   "builds": [
-    {
-      "src": "**/*",
-      "use": "@vercel/static"
-    }
+    { "src": "**/*", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/",
-      "dest": "/demo.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
+    { "src": "/", "dest": "/demo.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ],
   "headers": [
     {
