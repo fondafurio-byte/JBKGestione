@@ -1,3 +1,15 @@
+// Controllo sessione all'avvio
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (sessionData && sessionData.session) {
+    loginSection.style.display = 'none';
+    dashboardSection.style.display = 'block';
+    loadDashboard();
+  } else {
+    loginSection.style.display = 'block';
+    dashboardSection.style.display = 'none';
+  }
+});
 // Configurazione Supabase
 const SUPABASE_URL = 'https://hnmzfyzlyadsflhjwsgu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubXpmeXpseWFkc2ZsaGp3c2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMyMzIsImV4cCI6MjA3NDIxOTIzMn0.CxnEYe-1h2LZkfWwm0ZVJGhzFLWJOyBUAC5djVIwQHA';
@@ -58,13 +70,29 @@ logoutBtn.addEventListener('click', async () => {
 async function loadDashboard() {
   const dashboardContent = document.getElementById('dashboard-content');
   dashboardContent.textContent = 'Caricamento...';
-  // Esempio: fetch dati partite
+  // Fetch dati partite
   const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
     dashboardContent.textContent = 'Errore: ' + error.message;
-  } else {
-    dashboardContent.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+    return;
   }
+  if (!data || data.length === 0) {
+    dashboardContent.textContent = 'Nessuna partita trovata.';
+    return;
+  }
+  // Visualizza tabella partite stile app Python
+  let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+  html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
+  data.forEach(partita => {
+    html += `<tr style="border-bottom:1px solid #eee;">
+      <td>${partita.data || ''}</td>
+      <td>${partita.avversario || ''}</td>
+      <td>${partita.punti || ''}</td>
+      <td>${partita.risultato || ''}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  dashboardContent.innerHTML = html;
 }
 
 // Service Worker per PWA
