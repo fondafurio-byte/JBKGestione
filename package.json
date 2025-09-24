@@ -1,0 +1,13 @@
+{
+  "name": "jbk-gestione",
+  "version": "1.0.0",
+  "description": "JBK Gestione - Sistema di gestione squadra basket",
+  "main": "demo.html",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "build": "echo 'Build completed'"
+  },
+  "keywords": ["basket", "gestione", "squadra", "jbk"],
+  "author": "JBK Team",
+  "license": "MIT"
+}
