@@ -1,7 +1,7 @@
 // Configurazione Supabase
 const SUPABASE_URL = 'https://hnmzfyzlyadsflhjwsgu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubXpmeXpseWFkc2ZsaGp3c2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMyMzIsImV4cCI6MjA3NDIxOTIzMn0.CxnEYe-1h2LZkfWwm0ZVJGhzFLWJOyBUAC5djVIwQHA';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Login
 const loginForm = document.getElementById('login-form');
@@ -10,13 +10,14 @@ const dashboardSection = document.getElementById('dashboard-section');
 const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 
+
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
   loginError.style.display = 'none';
   // Login con Supabase
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: username,
     password: password
   });
@@ -30,18 +31,20 @@ loginForm.addEventListener('submit', async (e) => {
   }
 });
 
+
 logoutBtn.addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   dashboardSection.style.display = 'none';
   loginSection.style.display = 'block';
 });
 
 // Carica dati dashboard
+
 async function loadDashboard() {
   const dashboardContent = document.getElementById('dashboard-content');
   dashboardContent.textContent = 'Caricamento...';
   // Esempio: fetch dati partite
-  const { data, error } = await supabase.from('partite').select('*');
+  const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
     dashboardContent.textContent = 'Errore: ' + error.message;
   } else {
