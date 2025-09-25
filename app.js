@@ -121,6 +121,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('Session found, showing app');
     document.getElementById('debug-msg').textContent += ' Sessione trovata, mostro app.';
     loginSection.style.display = 'none';
+    document.getElementById('app-content').style.display = 'flex';
     showDefaultAfterLogin();
   } else {
     console.log('No session, showing login');
@@ -183,6 +184,7 @@ loginForm.addEventListener('submit', async (e) => {
   } else {
     console.log('Login successful');
     loginSection.style.display = 'none';
+    document.getElementById('app-content').style.display = 'flex';
     dashboardSection.style.display = 'block';
     loadDashboard();
   }
