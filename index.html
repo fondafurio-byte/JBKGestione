@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JBK Gestione</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="static/style.css?v=3">
+    <link rel="stylesheet" href="static/style.css?v=4">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -20,11 +20,11 @@
                 <h2>Login</h2>
                 <form id="login-form">
                     <input type="text" id="username" placeholder="Username" required>
-                    <input type="password" id="password" placeholder="Password" required>
+                    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
                     <button type="submit">Accedi</button>
                 </form>
-                <div id="login-error" style="color:red;display:none;"></div>
-                <div id="debug-msg" style="color:blue; margin-top:1rem;"></div>
+                <div id="login-error"></div>
+                <div id="debug-msg"></div>
             </section>
             <div id="app-content" style="display:none;">
                 <nav id="sidebar">
@@ -47,8 +47,8 @@
             </div>
         </div>
     </div>
-    <script src="static/supabase.min.js?v=3"></script>
-    <script src="app.js?v=3"></script>
+    <script src="static/supabase.min.js?v=4"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>
 
