@@ -5,8 +5,7 @@ const sections = {
   partite: document.getElementById('partite-section'),
   giocatori: document.getElementById('giocatori-section'),
   allenamenti: document.getElementById('allenamenti-section'),
-  statistiche: document.getElementById('statistiche-section'),
-  convocati: document.getElementById('convocati-section')
+  statistiche: document.getElementById('statistiche-section')
 };
 
 function showSection(page) {
@@ -24,7 +23,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
       if (page === 'giocatori') loadGiocatori();
       if (page === 'allenamenti') loadAllenamenti();
       if (page === 'statistiche') loadStatistiche();
-      if (page === 'convocati') loadConvocati();
     }
   });
 });
@@ -33,24 +31,24 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 function loadPartite() {
   const el = document.getElementById('partite-section');
   if (!el) return;
-  el.innerHTML = '<h2>Partite</h2><div>Caricamento partite...</div>';
+  el.innerHTML = '<h2>Partite</h2><button onclick="mostraFormNuovaPartita()">Aggiungi Partita</button><div>Caricamento partite...</div>';
   supabaseClient.from('partite').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
     if (!data || data.length === 0) { el.innerHTML += '<div>Nessuna partita trovata.</div>'; return; }
     let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
+    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th><th>Azioni</th></tr>';
     data.forEach(p => {
-      html += `<tr><td>${p.data||''}</td><td>${p.avversario||''}</td><td>${p.punti||''}</td><td>${p.risultato||''}</td></tr>`;
+      html += `<tr><td>${p.data||''}</td><td>${p.avversario||''}</td><td>${p.punti||''}</td><td>${p.risultato||''}</td><td><button onclick="gestisciConvocati(${p.id})">Convocati</button></td></tr>`;
     });
     html += '</table>';
-    el.innerHTML = '<h2>Partite</h2>' + html;
+    el.innerHTML = '<h2>Partite</h2><button onclick="mostraFormNuovaPartita()">Aggiungi Partita</button>' + html;
   });
 }
 
 function loadGiocatori() {
   const el = document.getElementById('giocatori-section');
   if (!el) return;
-  el.innerHTML = '<h2>Giocatori</h2><div>Caricamento giocatori...</div>';
+  el.innerHTML = '<h2>Giocatori</h2><button onclick="mostraFormNuovoGiocatore()">Aggiungi Giocatore</button><div>Caricamento giocatori...</div>';
   supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
     if (!data || data.length === 0) { el.innerHTML += '<div>Nessun giocatore trovato.</div>'; return; }
@@ -60,14 +58,14 @@ function loadGiocatori() {
       html += `<tr><td>${g.nome||''}</td><td>${g.cognome||''}</td><td>${g.ruolo||''}</td><td>${g.numero||''}</td></tr>`;
     });
     html += '</table>';
-    el.innerHTML = '<h2>Giocatori</h2>' + html;
+    el.innerHTML = '<h2>Giocatori</h2><button onclick="mostraFormNuovoGiocatore()">Aggiungi Giocatore</button>' + html;
   });
 }
 
 function loadAllenamenti() {
   const el = document.getElementById('allenamenti-section');
   if (!el) return;
-  el.innerHTML = '<h2>Allenamenti</h2><div>Caricamento allenamenti...</div>';
+  el.innerHTML = '<h2>Allenamenti</h2><button onclick="mostraFormNuovoAllenamento()">Aggiungi Allenamento</button><div>Caricamento allenamenti...</div>';
   supabaseClient.from('allenamenti').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
     if (!data || data.length === 0) { el.innerHTML += '<div>Nessun allenamento trovato.</div>'; return; }
@@ -77,22 +75,34 @@ function loadAllenamenti() {
       html += `<tr><td>${a.data||''}</td><td>${a.luogo||''}</td><td>${a.note||''}</td></tr>`;
     });
     html += '</table>';
-    el.innerHTML = '<h2>Allenamenti</h2>' + html;
+    el.innerHTML = '<h2>Allenamenti</h2><button onclick="mostraFormNuovoAllenamento()">Aggiungi Allenamento</button>' + html;
   });
 }
 
-function loadStatistiche() {
-  const el = document.getElementById('statistiche-section');
-  el.innerHTML = '<h2>Statistiche</h2><div>Caricamento statistiche...</div>';
-  // Placeholder: da implementare logica statistiche reali
-  el.innerHTML += '<div>Funzionalità in sviluppo.</div>';
-}
-
-function loadConvocati() {
-  const el = document.getElementById('convocati-section');
-  el.innerHTML = '<h2>Convocati</h2><div>Caricamento convocati...</div>';
-  // Placeholder: da implementare logica convocati reali
-  el.innerHTML += '<div>Funzionalità in sviluppo.</div>';
+function mostraFormNuovoAllenamento() {
+  const el = document.getElementById('allenamenti-section');
+  el.innerHTML = `
+    <h2>Nuovo Allenamento</h2>
+    <form id="form-allenamento">
+      <input type="date" id="data-allenamento" required>
+      <input type="text" id="luogo-allenamento" placeholder="Luogo" required>
+      <textarea id="note-allenamento" placeholder="Note"></textarea>
+      <button type="submit">Salva</button>
+      <button type="button" onclick="loadAllenamenti()">Annulla</button>
+    </form>
+  `;
+  document.getElementById('form-allenamento').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = document.getElementById('data-allenamento').value;
+    const luogo = document.getElementById('luogo-allenamento').value;
+    const note = document.getElementById('note-allenamento').value;
+    const { error } = await supabaseClient.from('allenamenti').insert({ data, luogo, note });
+    if (error) {
+      alert('Errore: ' + error.message);
+    } else {
+      loadAllenamenti();
+    }
+  });
 }
 
 // Mostra dashboard di default dopo login
