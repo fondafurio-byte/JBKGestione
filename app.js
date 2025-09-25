@@ -324,53 +324,169 @@ async function loadDashboard() {
 
 // Visualizzazione dati per ogni sezione
 function loadPartite() {
-  const el = document.getElementById('partite-section');
-  if (!el) return;
-  el.innerHTML = '<h2>Partite</h2><button onclick="mostraFormNuovaPartita()">Aggiungi Partita</button><div>Caricamento partite...</div>';
-  supabaseClient.from('partite').select('*').then(({ data, error }) => {
-    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
-    if (!data || data.length === 0) { el.innerHTML += '<div>Nessuna partita trovata.</div>'; return; }
-    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th><th>Azioni</th></tr>';
+  const section = document.getElementById('partite-section');
+  if (!section) return;
+
+  section.innerHTML = `
+    <h2>Partite</h2>
+    <div class="actions-bar">
+      <button onclick="showAddPartitaForm()" class="btn-add">➕ Aggiungi Partita</button>
+      <select id="filtro-tipologia" onchange="filtraPartite(this.value)">
+        <option value="tutte">Tutte le Partite</option>
+        <option value="pre-stagione">Pre-stagione</option>
+        <option value="stagione regolare">Stagione Regolare</option>
+        <option value="post-stagione">Post-stagione</option>
+        <option value="tornei">Tornei</option>
+      </select>
+    </div>
+    <div id="partite-content">
+      <div>Caricamento partite...</div>
+    </div>
+  `;
+
+  filtraPartite('tutte');
+}
+
+function filtraPartite(tipologia) {
+  const content = document.getElementById('partite-content');
+  if (!content) return;
+
+  content.innerHTML = '<div>Caricamento partite...</div>';
+
+  let query = supabaseClient.from('partite').select('*').order('data', { ascending: false });
+
+  if (tipologia !== 'tutte') {
+    query = query.eq('tipologia', tipologia);
+  }
+
+  query.then(({ data, error }) => {
+    if (error) {
+      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      content.innerHTML = '<div>Nessuna partita trovata.</div>';
+      return;
+    }
+
+    let html = '<div class="partite-list">';
     data.forEach(p => {
-      html += `<tr><td>${p.data||''}</td><td>${p.avversario||''}</td><td>${p.punti||''}</td><td>${p.risultato||''}</td><td><button onclick="gestisciConvocati(${p.id})">Convocati</button></td></tr>`;
+      const casaIcon = p.in_casa ? '🏠' : '✈️';
+      const vsPrefix = p.in_casa ? 'vs' : '@';
+      const risultato = (p.risultato_nostro !== null && p.risultato_avversario !== null) ?
+        ` (${p.risultato_nostro}-${p.risultato_avversario})` : '';
+
+      const tipologiaColors = {
+        'pre-stagione': '#ff9800',
+        'stagione regolare': '#4caf50',
+        'post-stagione': '#2196f3',
+        'tornei': '#9c27b0'
+      };
+      const bgColor = tipologiaColors[p.tipologia] || '#607d8b';
+
+      html += `
+        <div class="partita-card">
+          <div class="partita-info">
+            <div class="partita-header">
+              <span class="partita-icon">${casaIcon}</span>
+              <strong>${vsPrefix} ${p.avversario}${risultato}</strong>
+              <span class="partita-tipologia" style="background-color: ${bgColor}">${p.tipologia || 'stagione regolare'}</span>
+            </div>
+            <div class="partita-details">
+              📅 ${p.data} ⏰ ${p.ora || 'N/A'}
+            </div>
+          </div>
+          <div class="partita-actions">
+            <button onclick="gestisciConvocati(${p.id})" class="btn-convocati" title="Convocati">👥</button>
+            <button onclick="editPartita(${p.id})" class="btn-edit">✏️</button>
+            <button onclick="deletePartita(${p.id})" class="btn-delete">🗑️</button>
+          </div>
+        </div>
+      `;
     });
-    html += '</table>';
-    el.innerHTML = '<h2>Partite</h2><button onclick="mostraFormNuovaPartita()">Aggiungi Partita</button>' + html;
+    html += '</div>';
+
+    content.innerHTML = html;
   });
 }
 
 function loadGiocatori() {
-  const el = document.getElementById('giocatori-section');
-  if (!el) return;
-  el.innerHTML = '<h2>Giocatori</h2><button onclick="mostraFormNuovoGiocatore()">Aggiungi Giocatore</button><div>Caricamento giocatori...</div>';
-  supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
-    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
-    if (!data || data.length === 0) { el.innerHTML += '<div>Nessun giocatore trovato.</div>'; return; }
-    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-    html += '<tr style="background:#b71c1c;color:#fff;"><th>Nome</th><th>Cognome</th><th>Ruolo</th><th>Numero</th></tr>';
-    data.forEach(g => {
-      html += `<tr><td>${g.nome||''}</td><td>${g.cognome||''}</td><td>${g.ruolo||''}</td><td>${g.numero||''}</td></tr>`;
-    });
-    html += '</table>';
-    el.innerHTML = '<h2>Giocatori</h2><button onclick="mostraFormNuovoGiocatore()">Aggiungi Giocatore</button>' + html;
-  });
+  const section = document.getElementById('giocatori-section');
+  if (!section) return;
+
+  section.innerHTML = `
+    <h2>Giocatori</h2>
+    <div class="actions-bar">
+      <button onclick="showAddGiocatoreForm()" class="btn-add">➕ Aggiungi Giocatore</button>
+      <button onclick="loadGiocatoriList()" class="btn-list">📋 Lista Giocatori</button>
+    </div>
+    <div id="giocatori-content">
+      <div>Caricamento giocatori...</div>
+    </div>
+  `;
+
+  loadGiocatoriList();
 }
 
 function loadAllenamenti() {
-  const el = document.getElementById('allenamenti-section');
-  if (!el) return;
-  el.innerHTML = '<h2>Allenamenti</h2><button onclick="mostraFormNuovoAllenamento()">Aggiungi Allenamento</button><div>Caricamento allenamenti...</div>';
-  supabaseClient.from('allenamenti').select('*').then(({ data, error }) => {
-    if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
-    if (!data || data.length === 0) { el.innerHTML += '<div>Nessun allenamento trovato.</div>'; return; }
-    let html = '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-    html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Luogo</th><th>Note</th></tr>';
+  const section = document.getElementById('allenamenti-section');
+  if (!section) return;
+
+  section.innerHTML = `
+    <h2>Allenamenti</h2>
+    <div class="actions-bar">
+      <button onclick="showAddAllenamentoForm()" class="btn-add">➕ Aggiungi Allenamento</button>
+    </div>
+    <div id="allenamenti-content">
+      <div>Caricamento allenamenti...</div>
+    </div>
+  `;
+
+  loadAllenamentiList();
+}
+
+function loadAllenamentiList() {
+  const content = document.getElementById('allenamenti-content');
+  if (!content) return;
+
+  content.innerHTML = '<div>Caricamento allenamenti...</div>';
+
+  supabaseClient.from('allenamenti').select('*').order('data', { ascending: false }).then(({ data, error }) => {
+    if (error) {
+      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      content.innerHTML = '<div>Nessun allenamento trovato.</div>';
+      return;
+    }
+
+    let html = '<div class="allenamenti-list">';
     data.forEach(a => {
-      html += `<tr><td>${a.data||''}</td><td>${a.luogo||''}</td><td>${a.note||''}</td></tr>`;
+      html += `
+        <div class="allenamento-card">
+          <div class="allenamento-info">
+            <div class="allenamento-header">
+              <strong>💪 Allenamento</strong>
+            </div>
+            <div class="allenamento-details">
+              📅 ${a.data} ${a.ora ? `⏰ ${a.ora}` : ''}<br>
+              📍 ${a.luogo || 'Luogo non specificato'}
+              ${a.note ? `<br>📝 ${a.note}` : ''}
+            </div>
+          </div>
+          <div class="allenamento-actions">
+            <button onclick="editAllenamento(${a.id})" class="btn-edit">✏️</button>
+            <button onclick="deleteAllenamento(${a.id})" class="btn-delete">🗑️</button>
+          </div>
+        </div>
+      `;
     });
-    html += '</table>';
-    el.innerHTML = '<h2>Allenamenti</h2><button onclick="mostraFormNuovoAllenamento()">Aggiungi Allenamento</button>' + html;
+    html += '</div>';
+
+    content.innerHTML = html;
   });
 }
 
@@ -538,11 +654,434 @@ function loadStatistiche() {
   });
 }
 
-// Placeholder per funzioni mancanti
-function mostraFormNuovaPartita() { alert('Funzione in sviluppo'); }
-function mostraFormNuovoGiocatore() { alert('Funzione in sviluppo'); }
-function mostraFormNuovoAllenamento() { alert('Funzione in sviluppo'); }
-function gestisciConvocati(id) { alert('Funzione in sviluppo per partita ' + id); }
+function loadGiocatoriList() {
+  const content = document.getElementById('giocatori-content');
+  if (!content) return;
+
+  content.innerHTML = '<div>Caricamento giocatori...</div>';
+
+  supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
+    if (error) {
+      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      content.innerHTML = '<div>Nessun giocatore trovato.</div>';
+      return;
+    }
+
+    let html = '<div class="giocatori-list">';
+    data.forEach(g => {
+      const numeroText = g.numero_maglia ? `#${g.numero_maglia}` : 'N/A';
+      const idoneitaIcon = g.idoneita_sportiva ? '✅' : '❌';
+      const idoneitaText = g.idoneita_sportiva ? 'Idoneo' : 'Non Idoneo';
+
+      html += `
+        <div class="giocatore-card">
+          <div class="giocatore-info">
+            <strong>${numeroText} - ${g.nome} ${g.cognome}</strong><br>
+            <small>Ruolo: ${g.ruolo || 'N/A'} | ${idoneitaIcon} ${idoneitaText}</small>
+          </div>
+          <div class="giocatore-actions">
+            <button onclick="editGiocatore(${g.id})" class="btn-edit">✏️</button>
+            <button onclick="deleteGiocatore(${g.id})" class="btn-delete">🗑️</button>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    content.innerHTML = html;
+  });
+}
+
+function showAddGiocatoreForm() {
+  showGiocatoreForm();
+}
+
+function editGiocatore(id) {
+  // Prima carica i dati del giocatore
+  supabaseClient.from('giocatori').select('*').eq('id', id).single().then(({ data, error }) => {
+    if (error) {
+      alert('Errore nel caricamento del giocatore: ' + error.message);
+      return;
+    }
+    showGiocatoreForm(data);
+  });
+}
+
+function showGiocatoreForm(giocatore = null) {
+  const isEdit = giocatore !== null;
+  const title = isEdit ? 'Modifica Giocatore' : 'Nuovo Giocatore';
+
+  const formHtml = `
+    <div id="giocatore-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>${title}</h3>
+          <button onclick="closeModal()" class="btn-close">×</button>
+        </div>
+        <form id="giocatore-form" onsubmit="saveGiocatore(event, ${isEdit ? giocatore.id : 'null'})">
+          <div class="form-group">
+            <label for="nome">Nome:</label>
+            <input type="text" id="nome" name="nome" required value="${giocatore?.nome || ''}">
+          </div>
+          <div class="form-group">
+            <label for="cognome">Cognome:</label>
+            <input type="text" id="cognome" name="cognome" required value="${giocatore?.cognome || ''}">
+          </div>
+          <div class="form-group">
+            <label for="ruolo">Ruolo:</label>
+            <select id="ruolo" name="ruolo">
+              <option value="">Seleziona ruolo</option>
+              <option value="Playmaker" ${giocatore?.ruolo === 'Playmaker' ? 'selected' : ''}>Playmaker</option>
+              <option value="Guardia" ${giocatore?.ruolo === 'Guardia' ? 'selected' : ''}>Guardia</option>
+              <option value="Ala" ${giocatore?.ruolo === 'Ala' ? 'selected' : ''}>Ala</option>
+              <option value="Centro" ${giocatore?.ruolo === 'Centro' ? 'selected' : ''}>Centro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="numero_maglia">Numero Maglia:</label>
+            <input type="number" id="numero_maglia" name="numero_maglia" min="1" max="99" value="${giocatore?.numero_maglia || ''}">
+          </div>
+          <div class="form-group">
+            <label for="anno_nascita">Anno Nascita:</label>
+            <input type="number" id="anno_nascita" name="anno_nascita" min="1950" max="2010" value="${giocatore?.anno_nascita || ''}">
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="idoneita_sportiva" name="idoneita_sportiva" ${giocatore?.idoneita_sportiva ? 'checked' : ''}>
+              Idoneità Sportiva
+            </label>
+          </div>
+          <div class="form-group" id="data-scadenza-group" style="display: ${giocatore?.idoneita_sportiva ? 'block' : 'none'}">
+            <label for="data_scadenza_idoneita">Data Scadenza Idoneità:</label>
+            <input type="date" id="data_scadenza_idoneita" name="data_scadenza_idoneita" value="${giocatore?.data_scadenza_idoneita || ''}">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-save">${isEdit ? 'Salva Modifiche' : 'Aggiungi Giocatore'}</button>
+            <button type="button" onclick="closeModal()" class="btn-cancel">Annulla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', formHtml);
+
+  // Gestisci il toggle del campo data scadenza
+  const idoneitaCheckbox = document.getElementById('idoneita_sportiva');
+  const dataScadenzaGroup = document.getElementById('data-scadenza-group');
+
+  idoneitaCheckbox.addEventListener('change', function() {
+    dataScadenzaGroup.style.display = this.checked ? 'block' : 'none';
+  });
+}
+
+function saveGiocatore(event, giocatoreId) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const giocatore = {
+    nome: formData.get('nome'),
+    cognome: formData.get('cognome'),
+    ruolo: formData.get('ruolo'),
+    numero_maglia: formData.get('numero_maglia') ? parseInt(formData.get('numero_maglia')) : null,
+    anno_nascita: formData.get('anno_nascita') ? parseInt(formData.get('anno_nascita')) : null,
+    idoneita_sportiva: formData.get('idoneita_sportiva') === 'on',
+    data_scadenza_idoneita: formData.get('data_scadenza_idoneita') || null
+  };
+
+  const isEdit = giocatoreId !== null && giocatoreId !== 'null';
+
+  if (isEdit) {
+    // Aggiorna giocatore esistente
+    supabaseClient.from('giocatori').update(giocatore).eq('id', giocatoreId).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiornamento: ' + error.message);
+      } else {
+        alert('Giocatore aggiornato con successo!');
+        closeModal();
+        loadGiocatoriList();
+      }
+    });
+  } else {
+    // Crea nuovo giocatore
+    supabaseClient.from('giocatori').insert([giocatore]).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiunta: ' + error.message);
+      } else {
+        alert('Giocatore aggiunto con successo!');
+        closeModal();
+        loadGiocatoriList();
+      }
+    });
+  }
+}
+
+function deleteGiocatore(id) {
+  if (!confirm('Sei sicuro di voler eliminare questo giocatore?')) {
+    return;
+  }
+
+  supabaseClient.from('giocatori').delete().eq('id', id).then(({ error }) => {
+    if (error) {
+      alert('Errore nell\'eliminazione: ' + error.message);
+    } else {
+      alert('Giocatore eliminato con successo!');
+      loadGiocatoriList();
+    }
+  });
+}
+
+function showAddPartitaForm() {
+  showPartitaForm();
+}
+
+function editPartita(id) {
+  // Prima carica i dati della partita
+  supabaseClient.from('partite').select('*').eq('id', id).single().then(({ data, error }) => {
+    if (error) {
+      alert('Errore nel caricamento della partita: ' + error.message);
+      return;
+    }
+    showPartitaForm(data);
+  });
+}
+
+function showPartitaForm(partita = null) {
+  const isEdit = partita !== null;
+  const title = isEdit ? 'Modifica Partita' : 'Nuova Partita';
+
+  const formHtml = `
+    <div id="partita-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>${title}</h3>
+          <button onclick="closeModal()" class="btn-close">×</button>
+        </div>
+        <form id="partita-form" onsubmit="savePartita(event, ${isEdit ? partita.id : 'null'})">
+          <div class="form-group">
+            <label for="data">Data:</label>
+            <input type="date" id="data" name="data" required value="${partita?.data || ''}">
+          </div>
+          <div class="form-group">
+            <label for="ora">Ora:</label>
+            <input type="time" id="ora" name="ora" value="${partita?.ora || ''}">
+          </div>
+          <div class="form-group">
+            <label for="avversario">Avversario:</label>
+            <input type="text" id="avversario" name="avversario" required value="${partita?.avversario || ''}">
+          </div>
+          <div class="form-group">
+            <label for="luogo">Luogo:</label>
+            <input type="text" id="luogo" name="luogo" placeholder="Palestra, indirizzo..." value="${partita?.luogo || ''}">
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="in_casa" name="in_casa" ${partita?.in_casa ? 'checked' : ''}>
+              Partita in casa
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="tipologia">Tipologia:</label>
+            <select id="tipologia" name="tipologia">
+              <option value="stagione regolare" ${partita?.tipologia === 'stagione regolare' ? 'selected' : ''}>Stagione Regolare</option>
+              <option value="pre-stagione" ${partita?.tipologia === 'pre-stagione' ? 'selected' : ''}>Pre-stagione</option>
+              <option value="post-stagione" ${partita?.tipologia === 'post-stagione' ? 'selected' : ''}>Post-stagione</option>
+              <option value="tornei" ${partita?.tipologia === 'tornei' ? 'selected' : ''}>Tornei</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="risultato_nostro">Risultato Nostro:</label>
+            <input type="number" id="risultato_nostro" name="risultato_nostro" min="0" value="${partita?.risultato_nostro || ''}">
+          </div>
+          <div class="form-group">
+            <label for="risultato_avversario">Risultato Avversario:</label>
+            <input type="number" id="risultato_avversario" name="risultato_avversario" min="0" value="${partita?.risultato_avversario || ''}">
+          </div>
+          <div class="form-group">
+            <label for="note">Note:</label>
+            <textarea id="note" name="note" rows="3">${partita?.note || ''}</textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-save">${isEdit ? 'Salva Modifiche' : 'Aggiungi Partita'}</button>
+            <button type="button" onclick="closeModal()" class="btn-cancel">Annulla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', formHtml);
+}
+
+function savePartita(event, partitaId) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const partita = {
+    data: formData.get('data'),
+    ora: formData.get('ora') || null,
+    avversario: formData.get('avversario'),
+    luogo: formData.get('luogo') || null,
+    in_casa: formData.get('in_casa') === 'on',
+    tipologia: formData.get('tipologia'),
+    risultato_nostro: formData.get('risultato_nostro') ? parseInt(formData.get('risultato_nostro')) : null,
+    risultato_avversario: formData.get('risultato_avversario') ? parseInt(formData.get('risultato_avversario')) : null,
+    note: formData.get('note') || null
+  };
+
+  const isEdit = partitaId !== null && partitaId !== 'null';
+
+  if (isEdit) {
+    // Aggiorna partita esistente
+    supabaseClient.from('partite').update(partita).eq('id', partitaId).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiornamento: ' + error.message);
+      } else {
+        alert('Partita aggiornata con successo!');
+        closeModal();
+        filtraPartite(document.getElementById('filtro-tipologia').value);
+      }
+    });
+  } else {
+    // Crea nuova partita
+    supabaseClient.from('partite').insert([partita]).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiunta: ' + error.message);
+      } else {
+        alert('Partita aggiunta con successo!');
+        closeModal();
+        filtraPartite(document.getElementById('filtro-tipologia').value);
+      }
+    });
+  }
+}
+
+function deletePartita(id) {
+  if (!confirm('Sei sicuro di voler eliminare questa partita?')) {
+    return;
+  }
+
+  supabaseClient.from('partite').delete().eq('id', id).then(({ error }) => {
+    if (error) {
+      alert('Errore nell\'eliminazione: ' + error.message);
+    } else {
+      alert('Partita eliminata con successo!');
+      filtraPartite(document.getElementById('filtro-tipologia').value);
+    }
+  });
+}
+
+function showAddAllenamentoForm() {
+  showAllenamentoForm();
+}
+
+function editAllenamento(id) {
+  // Prima carica i dati dell'allenamento
+  supabaseClient.from('allenamenti').select('*').eq('id', id).single().then(({ data, error }) => {
+    if (error) {
+      alert('Errore nel caricamento dell\'allenamento: ' + error.message);
+      return;
+    }
+    showAllenamentoForm(data);
+  });
+}
+
+function showAllenamentoForm(allenamento = null) {
+  const isEdit = allenamento !== null;
+  const title = isEdit ? 'Modifica Allenamento' : 'Nuovo Allenamento';
+
+  const formHtml = `
+    <div id="allenamento-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>${title}</h3>
+          <button onclick="closeModal()" class="btn-close">×</button>
+        </div>
+        <form id="allenamento-form" onsubmit="saveAllenamento(event, ${isEdit ? allenamento.id : 'null'})">
+          <div class="form-group">
+            <label for="data">Data:</label>
+            <input type="date" id="data" name="data" required value="${allenamento?.data || ''}">
+          </div>
+          <div class="form-group">
+            <label for="ora">Ora:</label>
+            <input type="time" id="ora" name="ora" value="${allenamento?.ora || ''}">
+          </div>
+          <div class="form-group">
+            <label for="luogo">Luogo:</label>
+            <input type="text" id="luogo" name="luogo" required placeholder="Palestra, indirizzo..." value="${allenamento?.luogo || ''}">
+          </div>
+          <div class="form-group">
+            <label for="note">Note:</label>
+            <textarea id="note" name="note" rows="3" placeholder="Note sull'allenamento...">${allenamento?.note || ''}</textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-save">${isEdit ? 'Salva Modifiche' : 'Aggiungi Allenamento'}</button>
+            <button type="button" onclick="closeModal()" class="btn-cancel">Annulla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', formHtml);
+}
+
+function saveAllenamento(event, allenamentoId) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const allenamento = {
+    data: formData.get('data'),
+    ora: formData.get('ora') || null,
+    luogo: formData.get('luogo'),
+    note: formData.get('note') || null
+  };
+
+  const isEdit = allenamentoId !== null && allenamentoId !== 'null';
+
+  if (isEdit) {
+    // Aggiorna allenamento esistente
+    supabaseClient.from('allenamenti').update(allenamento).eq('id', allenamentoId).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiornamento: ' + error.message);
+      } else {
+        alert('Allenamento aggiornato con successo!');
+        closeModal();
+        loadAllenamentiList();
+      }
+    });
+  } else {
+    // Crea nuovo allenamento
+    supabaseClient.from('allenamenti').insert([allenamento]).then(({ error }) => {
+      if (error) {
+        alert('Errore nell\'aggiunta: ' + error.message);
+      } else {
+        alert('Allenamento aggiunto con successo!');
+        closeModal();
+        loadAllenamentiList();
+      }
+    });
+  }
+}
+
+function deleteAllenamento(id) {
+  if (!confirm('Sei sicuro di voler eliminare questo allenamento?')) {
+    return;
+  }
+
+  supabaseClient.from('allenamenti').delete().eq('id', id).then(({ error }) => {
+    if (error) {
+      alert('Errore nell\'eliminazione: ' + error.message);
+    } else {
+      alert('Allenamento eliminato con successo!');
+      loadAllenamentiList();
+    }
+  });
+}
 
 // Service Worker per PWA - TEMPORANEAMENTE DISABILITATO
 /*
@@ -565,5 +1104,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 */
+
+function closeModal() {
+  const modals = ['giocatore-modal', 'partita-modal', 'allenamento-modal'];
+  modals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.remove();
+    }
+  });
+}
 
 console.log('app.js fully loaded');
