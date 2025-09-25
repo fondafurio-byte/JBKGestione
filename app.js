@@ -48,7 +48,11 @@ function updateUIBasedOnMode() {
     // Modalità PWA - stile più nativo
     body.classList.add('pwa-mode');
     if (header) {
-      header.innerHTML = '🏀 JBK Gestione <small style="font-size: 0.6em; color: #666;">v1.0</small>';
+      header.textContent = '🏀 JBK Gestione';
+      const small = document.createElement('small');
+      small.style.cssText = 'font-size: 0.6em; color: #666; margin-left: 5px;';
+      small.textContent = 'v1.0';
+      header.appendChild(small);
     }
 
     // Aggiungi indicatore PWA
@@ -61,7 +65,11 @@ function updateUIBasedOnMode() {
     // Modalità Web - stile browser standard
     body.classList.remove('pwa-mode');
     if (header) {
-      header.innerHTML = '🌐 JBK Gestione <small style="font-size: 0.6em; color: #666;">Web</small>';
+      header.textContent = '🌐 JBK Gestione';
+      const small = document.createElement('small');
+      small.style.cssText = 'font-size: 0.6em; color: #666; margin-left: 5px;';
+      small.textContent = 'Web';
+      header.appendChild(small);
     }
   }
 }
@@ -72,7 +80,7 @@ function addPWABadge() {
   if (header && !document.querySelector('.pwa-badge')) {
     const badge = document.createElement('div');
     badge.className = 'pwa-badge';
-    badge.innerHTML = '📱 PWA';
+    badge.textContent = '📱 PWA';
     badge.style.cssText = `
       position: absolute;
       top: 10px;
@@ -179,7 +187,7 @@ function showInstallButton(deferredPrompt) {
   if (header && !document.querySelector('.install-btn')) {
     const installBtn = document.createElement('button');
     installBtn.className = 'install-btn';
-    installBtn.innerHTML = '📱 Installa App';
+    installBtn.textContent = '📱 Installa App';
     installBtn.style.cssText = `
       position: absolute;
       top: 10px;
@@ -489,17 +497,30 @@ async function loadDashboard() {
     return;
   }
   console.log('dashboard-section found, loading data');
-  section.innerHTML = '<div>Caricamento...</div>';
+
+  // Clear existing content
+  section.innerHTML = '';
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento...';
+  section.appendChild(loadingDiv);
+
   // Fetch dati partite (come anteprima dashboard)
   const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
     console.log('Error fetching partite:', error);
-    section.innerHTML = '<div>Errore: ' + error.message + '</div>';
+    section.innerHTML = '';
+    const errorDiv = document.createElement('div');
+    errorDiv.textContent = 'Errore: ' + error.message;
+    section.appendChild(errorDiv);
     return;
   }
   if (!data || data.length === 0) {
     console.log('No partite found');
-    section.innerHTML = '<div>Nessuna partita trovata.</div>';
+    section.innerHTML = '';
+    const noDataDiv = document.createElement('div');
+    noDataDiv.textContent = 'Nessuna partita trovata.';
+    section.appendChild(noDataDiv);
     return;
   }
   console.log('Partite loaded:', data.length);
@@ -523,22 +544,55 @@ function loadPartite() {
   const section = document.getElementById('partite-section');
   if (!section) return;
 
-  section.innerHTML = `
-    <h2>Partite</h2>
-    <div class="actions-bar">
-      <button onclick="showAddPartitaForm()" class="btn-add">➕ Aggiungi Partita</button>
-      <select id="filtro-tipologia" onchange="filtraPartite(this.value)">
-        <option value="tutte">Tutte le Partite</option>
-        <option value="pre-stagione">Pre-stagione</option>
-        <option value="stagione regolare">Stagione Regolare</option>
-        <option value="post-stagione">Post-stagione</option>
-        <option value="tornei">Tornei</option>
-      </select>
-    </div>
-    <div id="partite-content">
-      <div>Caricamento partite...</div>
-    </div>
-  `;
+  // Clear existing content
+  section.innerHTML = '';
+
+  // Create title
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Partite';
+  section.appendChild(h2);
+
+  // Create actions bar
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'actions-bar';
+
+  const addButton = document.createElement('button');
+  addButton.onclick = showAddPartitaForm;
+  addButton.className = 'btn-add';
+  addButton.textContent = '➕ Aggiungi Partita';
+  actionsBar.appendChild(addButton);
+
+  const select = document.createElement('select');
+  select.id = 'filtro-tipologia';
+  select.onchange = function() { filtraPartite(this.value); };
+
+  const options = [
+    { value: 'tutte', text: 'Tutte le Partite' },
+    { value: 'pre-stagione', text: 'Pre-stagione' },
+    { value: 'stagione regolare', text: 'Stagione Regolare' },
+    { value: 'post-stagione', text: 'Post-stagione' },
+    { value: 'tornei', text: 'Tornei' }
+  ];
+
+  options.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.text;
+    select.appendChild(option);
+  });
+
+  actionsBar.appendChild(select);
+  section.appendChild(actionsBar);
+
+  // Create content container
+  const content = document.createElement('div');
+  content.id = 'partite-content';
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento partite...';
+  content.appendChild(loadingDiv);
+
+  section.appendChild(content);
 
   filtraPartite('tutte');
 }
@@ -547,7 +601,12 @@ function filtraPartite(tipologia) {
   const content = document.getElementById('partite-content');
   if (!content) return;
 
-  content.innerHTML = '<div>Caricamento partite...</div>';
+  // Clear existing content
+  content.innerHTML = '';
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento partite...';
+  content.appendChild(loadingDiv);
 
   let query = supabaseClient.from('partite').select('*').order('data', { ascending: false });
 
@@ -557,16 +616,28 @@ function filtraPartite(tipologia) {
 
   query.then(({ data, error }) => {
     if (error) {
-      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      content.innerHTML = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.style.color = 'red';
+      errorDiv.textContent = 'Errore: ' + error.message;
+      content.appendChild(errorDiv);
       return;
     }
 
     if (!data || data.length === 0) {
-      content.innerHTML = '<div>Nessuna partita trovata.</div>';
+      content.innerHTML = '';
+      const noDataDiv = document.createElement('div');
+      noDataDiv.textContent = 'Nessuna partita trovata.';
+      content.appendChild(noDataDiv);
       return;
     }
 
-    let html = '<div class="partite-list">';
+    // Clear loading content
+    content.innerHTML = '';
+
+    const partiteList = document.createElement('div');
+    partiteList.className = 'partite-list';
+
     data.forEach(p => {
       const casaIcon = p.in_casa ? '🏠' : '✈️';
       const vsPrefix = p.in_casa ? 'vs' : '@';
@@ -581,29 +652,71 @@ function filtraPartite(tipologia) {
       };
       const bgColor = tipologiaColors[p.tipologia] || '#607d8b';
 
-      html += `
-        <div class="partita-card">
-          <div class="partita-info">
-            <div class="partita-header">
-              <span class="partita-icon">${casaIcon}</span>
-              <strong>${vsPrefix} ${p.avversario}${risultato}</strong>
-              <span class="partita-tipologia" style="background-color: ${bgColor}">${p.tipologia || 'stagione regolare'}</span>
-            </div>
-            <div class="partita-details">
-              📅 ${p.data} ⏰ ${p.ora || 'N/A'}
-            </div>
-          </div>
-          <div class="partita-actions">
-            <button onclick="gestisciConvocati(${p.id})" class="btn-convocati" title="Convocati">👥</button>
-            <button onclick="editPartita(${p.id})" class="btn-edit">✏️</button>
-            <button onclick="deletePartita(${p.id})" class="btn-delete">🗑️</button>
-          </div>
-        </div>
-      `;
-    });
-    html += '</div>';
+      // Create partita card
+      const card = document.createElement('div');
+      card.className = 'partita-card';
 
-    content.innerHTML = html;
+      // Create partita info
+      const info = document.createElement('div');
+      info.className = 'partita-info';
+
+      // Create header
+      const header = document.createElement('div');
+      header.className = 'partita-header';
+
+      const icon = document.createElement('span');
+      icon.className = 'partita-icon';
+      icon.textContent = casaIcon;
+      header.appendChild(icon);
+
+      const strong = document.createElement('strong');
+      strong.textContent = `${vsPrefix} ${p.avversario}${risultato}`;
+      header.appendChild(strong);
+
+      const tipologia = document.createElement('span');
+      tipologia.className = 'partita-tipologia';
+      tipologia.style.backgroundColor = bgColor;
+      tipologia.textContent = p.tipologia || 'stagione regolare';
+      header.appendChild(tipologia);
+
+      info.appendChild(header);
+
+      // Create details
+      const details = document.createElement('div');
+      details.className = 'partita-details';
+      details.textContent = `📅 ${p.data} ⏰ ${p.ora || 'N/A'}`;
+      info.appendChild(details);
+
+      card.appendChild(info);
+
+      // Create actions
+      const actions = document.createElement('div');
+      actions.className = 'partita-actions';
+
+      const convocatiBtn = document.createElement('button');
+      convocatiBtn.className = 'btn-convocati';
+      convocatiBtn.title = 'Convocati';
+      convocatiBtn.textContent = '👥';
+      convocatiBtn.onclick = () => gestisciConvocati(p.id);
+      actions.appendChild(convocatiBtn);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn-edit';
+      editBtn.textContent = '✏️';
+      editBtn.onclick = () => editPartita(p.id);
+      actions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-delete';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.onclick = () => deletePartita(p.id);
+      actions.appendChild(deleteBtn);
+
+      card.appendChild(actions);
+      partiteList.appendChild(card);
+    });
+
+    content.appendChild(partiteList);
   });
 }
 
