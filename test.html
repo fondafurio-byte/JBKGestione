@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test JBK Webapp</title>
+</head>
+<body>
+    <h1>Test Caricamento Webapp</h1>
+    <div id="test-results"></div>
+
+    <script src="static/supabase.min.js"></script>
+    <script>
+        console.log('Test script loaded');
+
+        // Test Supabase loading
+        if (window.supabase) {
+            document.getElementById('test-results').innerHTML += '<p>✅ Supabase library loaded successfully</p>';
+            console.log('Supabase library found');
+        } else {
+            document.getElementById('test-results').innerHTML += '<p>❌ Supabase library not loaded</p>';
+            console.error('Supabase library not found');
+        }
+
+        // Test app.js loading
+        const script = document.createElement('script');
+        script.src = 'app.js';
+        script.onload = function() {
+            document.getElementById('test-results').innerHTML += '<p>✅ app.js loaded successfully</p>';
+            console.log('app.js loaded');
+        };
+        script.onerror = function() {
+            document.getElementById('test-results').innerHTML += '<p>❌ app.js failed to load</p>';
+            console.error('app.js failed to load');
+        };
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

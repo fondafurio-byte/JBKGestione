@@ -1,50 +1,53 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <title>JBK Gestione</title>
-
-        <link rel="icon" type="image/png" href="/static/logo-32.png"/>
-
-        <!-- Social Sharing Metadata -->
-        <meta property="og:title" content=""JBK Gestione"">
-        <meta property="og:description" content=""App per la gestione di una squadra di basket"">
-        <meta property="og:url" content="https://example.com">
-        <meta property="og:type" content="website">
-        <meta property="og:image" content="/static/social.png">
-
-        <!-- PyScript -->
-
-        <script type="module">
-            // Hide the splash screen when the page is ready.
-            import { hooks } from "https://pyscript.net/releases/2024.11.1/core.js";
-            hooks.main.onReady.add(() => {
-                document.getElementById("briefcase-splash").classList.add("hidden");
-            });
-        </script>
-
-        <link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
-        <script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
-
-        <!-- App Style -->
-
-        <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.3.0/dist/themes/light.css" />
-        <script type="module"
-                src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.3.0/dist/shoelace.js"></script>
-        <link rel="stylesheet" href="/static/css/briefcase.css">
-    </head>
-    <body id="app-placeholder">
-        <div id="briefcase-splash">
-            <img src="static/logo-32.png" alt="Splash screen logo">
-            <p>Loading...</p>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JBK Gestione</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="static/style.css?v=4">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>JBK Gestione</h1>
+        </header>
+        <div id="main-layout">
+            <section id="login-section">
+                <h2>Login</h2>
+                <form id="login-form">
+                    <input type="text" id="username" placeholder="Username" required>
+                    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+                    <button type="submit">Accedi</button>
+                </form>
+                <div id="login-error"></div>
+                <div id="debug-msg"></div>
+            </section>
+            <div id="app-content">
+                <nav id="sidebar">
+                    <ul>
+                        <li><button class="nav-btn" data-page="dashboard">Dashboard</button></li>
+                        <li><button class="nav-btn" data-page="partite">Partite</button></li>
+                        <li><button class="nav-btn" data-page="giocatori">Giocatori</button></li>
+                        <li><button class="nav-btn" data-page="allenamenti">Allenamenti</button></li>
+                        <li><button class="nav-btn" data-page="statistiche">Statistiche</button></li>
+                        <li><button id="logout-btn">Logout</button></li>
+                    </ul>
+                </nav>
+                <main id="content-area">
+                    <section id="dashboard-section"></section>
+                    <section id="partite-section"></section>
+                    <section id="giocatori-section"></section>
+                    <section id="allenamenti-section"></section>
+                    <section id="statistiche-section"></section>
+                </main>
+            </div>
         </div>
-        <script type="py" async="false" config="pyscript.toml">
-            import runpy
-            result = runpy.run_module(
-                "jbkgestione", run_name="__main__", alter_sys=True
-            )
-        </script>
-    </body>
+    </div>
+    <script src="static/supabase.min.js?v=4"></script>
+    <script src="app.js?v=4"></script>
+</body>
 </html>
