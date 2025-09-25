@@ -189,34 +189,23 @@ logoutBtn.addEventListener('click', async () => {
 
 async function loadDashboard() {
   console.log('loadDashboard called');
-  let dashboardContent = document.getElementById('dashboard-content');
-  if (!dashboardContent) {
-    console.log('dashboard-content not found, creating it');
-    const section = document.getElementById('dashboard-section');
-    if (section) {
-      section.innerHTML = '<div id="dashboard-content"></div>';
-      dashboardContent = document.getElementById('dashboard-content');
-    } else {
-      console.log('dashboard-section not found');
-      return;
-    }
-  }
-  if (!dashboardContent) {
-    console.log('still no dashboard-content');
+  const section = document.getElementById('dashboard-section');
+  if (!section) {
+    console.log('dashboard-section not found');
     return;
   }
-  console.log('dashboard-content found, loading data');
-  dashboardContent.textContent = 'Caricamento...';
+  console.log('dashboard-section found, loading data');
+  section.innerHTML = '<div>Caricamento...</div>';
   // Fetch dati partite (come anteprima dashboard)
   const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
     console.log('Error fetching partite:', error);
-    dashboardContent.textContent = 'Errore: ' + error.message;
+    section.innerHTML = '<div>Errore: ' + error.message + '</div>';
     return;
   }
   if (!data || data.length === 0) {
     console.log('No partite found');
-    dashboardContent.textContent = 'Nessuna partita trovata.';
+    section.innerHTML = '<div>Nessuna partita trovata.</div>';
     return;
   }
   console.log('Partite loaded:', data.length);
@@ -232,7 +221,7 @@ async function loadDashboard() {
     </tr>`;
   });
   html += '</table>';
-  dashboardContent.innerHTML = html;
+  section.innerHTML = html;
 }
 
 // Service Worker per PWA
