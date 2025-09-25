@@ -3,11 +3,11 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/static/style.css?v=3',
+  '/static/style.css?v=4',
   '/static/icon-192.png',
   '/static/icon-512.png',
-  '/static/supabase.min.js?v=3',
-  '/app.js?v=3'
+  '/static/supabase.min.js?v=4',
+  '/app.js?v=4'
 ];
 
 self.addEventListener('install', event => {

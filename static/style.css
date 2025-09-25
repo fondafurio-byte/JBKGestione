@@ -96,9 +96,13 @@ button:hover {
   margin-top: 1rem;
 }
 
-/* Hidden sections */
+/* Hidden sections - initially hidden, controlled by JS */
 #app-content {
   display: none;
+}
+
+#login-section {
+  display: block;
 }
 
 section[id$="-section"] {

@@ -28,9 +28,26 @@ const dashboardSection = document.getElementById('dashboard-section');
 const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 
+// Verifica che tutti gli elementi esistano
+if (!loginForm || !loginSection || !dashboardSection || !loginError || !logoutBtn) {
+  console.error('Alcuni elementi DOM non trovati!');
+  document.getElementById('debug-msg').textContent = 'Errore: elementi DOM mancanti';
+}
+
 function showSection(page) {
   Object.values(sections).forEach(sec => sec.style.display = 'none');
   if (sections[page]) sections[page].style.display = 'block';
+}
+
+// Gestione visibilità app
+function showApp() {
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('app-content').style.display = 'flex';
+}
+
+function showLogin() {
+  document.getElementById('login-section').style.display = 'block';
+  document.getElementById('app-content').style.display = 'none';
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -63,14 +80,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (sessionData && sessionData.session) {
     console.log('Session found, showing app');
     document.getElementById('debug-msg').textContent += ' Sessione trovata, mostro app.';
-    loginSection.style.display = 'none';
-    document.getElementById('app-content').style.display = 'flex';
+    showApp();
     showDefaultAfterLogin();
   } else {
     console.log('No session, showing login');
     document.getElementById('debug-msg').textContent += ' Nessuna sessione, mostro login.';
-    loginSection.style.display = 'block';
-    dashboardSection.style.display = 'none';
+    showLogin();
   }
 });
 
@@ -107,8 +122,7 @@ loginForm.addEventListener('submit', async (e) => {
     loginError.style.display = 'block';
   } else {
     console.log('Login successful');
-    loginSection.style.display = 'none';
-    document.getElementById('app-content').style.display = 'flex';
+    showApp();
     dashboardSection.style.display = 'block';
     loadDashboard();
   }
@@ -116,8 +130,7 @@ loginForm.addEventListener('submit', async (e) => {
 
 logoutBtn.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
-  dashboardSection.style.display = 'none';
-  loginSection.style.display = 'block';
+  showLogin();
   showSection('login');
 });
 
@@ -223,7 +236,8 @@ function mostraFormNuovoGiocatore() { alert('Funzione in sviluppo'); }
 function mostraFormNuovoAllenamento() { alert('Funzione in sviluppo'); }
 function gestisciConvocati(id) { alert('Funzione in sviluppo per partita ' + id); }
 
-// Service Worker per PWA
+// Service Worker per PWA - TEMPORANEAMENTE DISABILITATO
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('service-worker.js').then(registration => {
@@ -242,5 +256,6 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+*/
 
 console.log('app.js fully loaded');
