@@ -189,9 +189,20 @@ logoutBtn.addEventListener('click', async () => {
 
 async function loadDashboard() {
   console.log('loadDashboard called');
-  const dashboardContent = document.getElementById('dashboard-content');
+  let dashboardContent = document.getElementById('dashboard-content');
   if (!dashboardContent) {
-    console.log('dashboard-content not found');
+    console.log('dashboard-content not found, creating it');
+    const section = document.getElementById('dashboard-section');
+    if (section) {
+      section.innerHTML = '<div id="dashboard-content"></div>';
+      dashboardContent = document.getElementById('dashboard-content');
+    } else {
+      console.log('dashboard-section not found');
+      return;
+    }
+  }
+  if (!dashboardContent) {
+    console.log('still no dashboard-content');
     return;
   }
   console.log('dashboard-content found, loading data');
