@@ -122,8 +122,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 // Configurazione Supabase
 const SUPABASE_URL = 'https://hnmzfyzlyadsflhjwsgu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubXpmeXpseWFkc2ZsaGp3c2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMyMzIsImV4cCI6MjA3NDIxOTIzMn0.CxnEYe-1h2LZkfWwm0ZVJGhzFLWJOyBUAC5djVIwQHA';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-console.log('Supabase client initialized');
+if (!window.supabase) {
+  console.error('Supabase library not loaded');
+  document.getElementById('debug-msg').textContent = 'Errore: libreria Supabase non caricata';
+} else {
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log('Supabase client initialized');
+}
 
 // Login
 const loginForm = document.getElementById('login-form');
