@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jbkgestione-cache-v2';
+const CACHE_NAME = 'jbkgestione-cache-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const urlsToCache = [
   '/static/style.css?v=2',
   '/static/icon-192.png',
   '/static/icon-512.png',
+  '/static/supabase.min.js?v=2',
   '/app.js?v=2'
 ];
 
