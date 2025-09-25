@@ -1,0 +1,14 @@
+# Placeholder per le icone JBK Gestione
+# 
+# NOTA: Questo è solo un file placeholder.
+# Per il deployment effettivo, sostituire con vere icone PNG nelle dimensioni indicate.
+#
+# File necessari in questa directory:
+# - jbkgestione.png (icona base)
+# - jbkgestione-splash.png (splash screen)
+# - Tutte le dimensioni specificate in README_ICONS.md
+#
+# Suggerimento: Crea un'icona 1024x1024 con:
+# - Logo JBK o simbolo basket
+# - Colori rosso (#dc3545) e bianco
+# - Design pulito e moderno

@@ -1,0 +1,96 @@
+[build-system]
+requires = ["briefcase"]
+
+[tool.briefcase]
+project_name = "JBK Gestione"
+bundle = "com.jbk"
+version = "0.0.1"
+url = "https://jbk-gestione.example.com"
+license = { file = "LICENSE" }
+author = "JBK Team"
+author_email = "team@jbk.com"
+
+[tool.briefcase.app.jbkgestione]
+formal_name = "JBK Gestione"
+description = "App per la gestione di una squadra di basket"
+long_description = """Un'applicazione completa per gestire una squadra di basket, 
+inclusi giocatori, allenamenti, partite e statistiche."""
+icon = "resources/jbkgestione"
+sources = ["src/jbkgestione"]
+test_sources = ["tests"]
+
+requires = [
+    "toga>=0.4.0",
+    "requests>=2.31.0",
+    "supabase>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+test_requires = [
+    "pytest",
+]
+
+[tool.briefcase.app.jbkgestione.macOS]
+requires = [
+    "toga-cocoa>=0.4.0",
+]
+
+[tool.briefcase.app.jbkgestione.linux]
+requires = [
+    "toga-gtk>=0.4.0",
+]
+
+[tool.briefcase.app.jbkgestione.linux.system.debian]
+system_requires = [
+    "libgirepository1.0-dev",
+    "libcairo2-dev",
+    "libpango1.0-dev",
+    "libwebkitgtk-3.0-dev",
+]
+
+[tool.briefcase.app.jbkgestione.linux.system.rhel]
+system_requires = [
+    "gobject-introspection-devel",
+    "cairo-devel",
+    "pango-devel",
+    "webkitgtk3-devel",
+]
+
+[tool.briefcase.app.jbkgestione.linux.system.arch]
+system_requires = [
+    "gobject-introspection",
+    "cairo",
+    "pango",
+    "webkit2gtk",
+]
+
+[tool.briefcase.app.jbkgestione.linux.appimage]
+manylinux = "manylinux_2_28"
+
+system_requires = [
+    "libgirepository1.0-dev",
+    "libcairo2-dev",
+    "libpango1.0-dev",
+    "libwebkitgtk-3.0-dev",
+]
+
+[tool.briefcase.app.jbkgestione.windows]
+requires = [
+    "toga-winforms>=0.4.0",
+]
+
+[tool.briefcase.app.jbkgestione.iOS]
+requires = [
+    "toga-iOS>=0.4.0",
+]
+
+[tool.briefcase.app.jbkgestione.android]
+requires = [
+    "toga-android>=0.4.0",
+]
+
+[tool.briefcase.app.jbkgestione.web]
+requires = [
+    "toga-web>=0.4.0",
+]
+style_framework = "Shoelace v2.3"

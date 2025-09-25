@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Briefcase-Version: 0.3.25
+Name: jbkgestione
+Formal-Name: JBK Gestione
+App-ID: com.jbk.jbkgestione
+Version: 0.0.1
+Home-page: https://jbk-gestione.example.com
+Download-URL: https://jbk-gestione.example.com
+Author: JBK Team
+Author-email: team@jbk.com
+Summary: App per la gestione di una squadra di basket
