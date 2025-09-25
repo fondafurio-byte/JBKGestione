@@ -31,6 +31,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 // Visualizzazione dati per ogni sezione (placeholder, da completare con fetch Supabase)
 function loadPartite() {
   const el = document.getElementById('partite-section');
+  if (!el) return;
   el.innerHTML = '<h2>Partite</h2><div>Caricamento partite...</div>';
   supabaseClient.from('partite').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
@@ -47,6 +48,7 @@ function loadPartite() {
 
 function loadGiocatori() {
   const el = document.getElementById('giocatori-section');
+  if (!el) return;
   el.innerHTML = '<h2>Giocatori</h2><div>Caricamento giocatori...</div>';
   supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
@@ -63,6 +65,7 @@ function loadGiocatori() {
 
 function loadAllenamenti() {
   const el = document.getElementById('allenamenti-section');
+  if (!el) return;
   el.innerHTML = '<h2>Allenamenti</h2><div>Caricamento allenamenti...</div>';
   supabaseClient.from('allenamenti').select('*').then(({ data, error }) => {
     if (error) { el.innerHTML += '<div style="color:red">Errore: '+error.message+'</div>'; return; }
@@ -167,6 +170,7 @@ logoutBtn.addEventListener('click', async () => {
 
 async function loadDashboard() {
   const dashboardContent = document.getElementById('dashboard-content');
+  if (!dashboardContent) return;
   dashboardContent.textContent = 'Caricamento...';
   // Fetch dati partite (come anteprima dashboard)
   const { data, error } = await supabaseClient.from('partite').select('*');
