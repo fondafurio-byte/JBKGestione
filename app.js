@@ -20,6 +20,198 @@ if (!window.supabase) {
   console.log('Supabase client initialized successfully');
 }
 
+// === IBRIDO PWA/NATIVO DETECTION ===
+let isPWA = false;
+let isOnline = navigator.onLine;
+
+// Rilevamento PWA (Progressive Web App)
+function checkPWAStatus() {
+  // Controlla se è in modalità standalone (installata come app)
+  isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+           window.navigator.standalone === true ||
+           document.referrer.includes('android-app://');
+
+  console.log('🔍 PWA Status:', isPWA ? 'INSTALLATA (Standalone)' : 'WEB (Browser)');
+
+  // Aggiorna UI basata sulla modalità
+  updateUIBasedOnMode();
+
+  return isPWA;
+}
+
+// Aggiorna l'interfaccia basata sulla modalità (PWA vs Web)
+function updateUIBasedOnMode() {
+  const body = document.body;
+  const header = document.querySelector('header h1');
+
+  if (isPWA) {
+    // Modalità PWA - stile più nativo
+    body.classList.add('pwa-mode');
+    if (header) {
+      header.innerHTML = '🏀 JBK Gestione <small style="font-size: 0.6em; color: #666;">v1.0</small>';
+    }
+
+    // Aggiungi indicatore PWA
+    addPWABadge();
+
+    // Abilita notifiche push se supportate
+    requestNotificationPermission();
+
+  } else {
+    // Modalità Web - stile browser standard
+    body.classList.remove('pwa-mode');
+    if (header) {
+      header.innerHTML = '🌐 JBK Gestione <small style="font-size: 0.6em; color: #666;">Web</small>';
+    }
+  }
+}
+
+// Aggiungi badge PWA nell'header
+function addPWABadge() {
+  const header = document.querySelector('header');
+  if (header && !document.querySelector('.pwa-badge')) {
+    const badge = document.createElement('div');
+    badge.className = 'pwa-badge';
+    badge.innerHTML = '📱 PWA';
+    badge.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #4CAF50;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.7em;
+      font-weight: bold;
+    `;
+    header.style.position = 'relative';
+    header.appendChild(badge);
+  }
+}
+
+// Richiedi permesso notifiche (solo in PWA)
+async function requestNotificationPermission() {
+  if ('Notification' in window && isPWA) {
+    const permission = await Notification.requestPermission();
+    console.log('📢 Notification permission:', permission);
+  }
+}
+
+// Gestione connettività
+function handleConnectivityChange() {
+  isOnline = navigator.onLine;
+  console.log('🌐 Connectivity changed:', isOnline ? 'ONLINE' : 'OFFLINE');
+
+  // Mostra indicatore di connessione
+  showConnectivityStatus();
+
+  if (!isOnline) {
+    // Modalità offline - salva dati localmente
+    console.log('💾 Switching to offline mode');
+  }
+}
+
+// Mostra stato connessione
+function showConnectivityStatus() {
+  let statusDiv = document.querySelector('.connectivity-status');
+  if (!statusDiv) {
+    statusDiv = document.createElement('div');
+    statusDiv.className = 'connectivity-status';
+    statusDiv.style.cssText = `
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 0.8em;
+      z-index: 1000;
+    `;
+    document.body.appendChild(statusDiv);
+  }
+
+  if (isOnline) {
+    statusDiv.textContent = '🟢 Online';
+    statusDiv.style.background = '#4CAF50';
+    statusDiv.style.color = 'white';
+    setTimeout(() => statusDiv.remove(), 3000); // Rimuovi dopo 3 secondi
+  } else {
+    statusDiv.textContent = '🔴 Offline';
+    statusDiv.style.background = '#f44336';
+    statusDiv.style.color = 'white';
+  }
+}
+
+// Inizializzazione ibrida
+function initHybridFeatures() {
+  console.log('🚀 Initializing hybrid features...');
+
+  // Rileva modalità PWA
+  checkPWAStatus();
+
+  // Gestione connettività
+  window.addEventListener('online', handleConnectivityChange);
+  window.addEventListener('offline', handleConnectivityChange);
+
+  // Rileva cambiamenti display mode (installazione PWA)
+  window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+    isPWA = e.matches;
+    console.log('🔄 Display mode changed:', isPWA ? 'standalone' : 'browser');
+    updateUIBasedOnMode();
+  });
+
+  // Install prompt per PWA
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('📱 PWA install prompt available');
+    e.preventDefault();
+    deferredPrompt = e;
+
+    // Mostra pulsante installa se non è già PWA
+    if (!isPWA) {
+      showInstallButton(deferredPrompt);
+    }
+  });
+}
+
+// Mostra pulsante installa PWA
+function showInstallButton(deferredPrompt) {
+  const header = document.querySelector('header');
+  if (header && !document.querySelector('.install-btn')) {
+    const installBtn = document.createElement('button');
+    installBtn.className = 'install-btn';
+    installBtn.innerHTML = '📱 Installa App';
+    installBtn.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9em;
+    `;
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('📱 PWA install outcome:', outcome);
+        if (outcome === 'accepted') {
+          isPWA = true;
+          updateUIBasedOnMode();
+        }
+        deferredPrompt = null;
+        installBtn.remove();
+      }
+    });
+
+    header.style.position = 'relative';
+    header.appendChild(installBtn);
+  }
+}
+
 // Elementi DOM
 console.log('Getting DOM elements...');
 const sections = {
@@ -131,6 +323,10 @@ function showDefaultAfterLogin() {
 console.log('Setting up DOMContentLoaded listener...');
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('DOMContentLoaded fired');
+
+  // Inizializza funzionalità ibride PWA/Native
+  initHybridFeatures();
+
   const debugMsg = document.getElementById('debug-msg');
   if (debugMsg) {
     debugMsg.textContent = 'JS caricato, controllo sessione...';

@@ -377,3 +377,103 @@ section[id$="-section"] {
   display: flex;
   gap: 5px;
 }
+
+/* === STILI MODALITÀ IBRIDA PWA === */
+
+/* Modalità PWA - aspetto più nativo */
+body.pwa-mode {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body.pwa-mode header {
+  background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  position: relative;
+}
+
+body.pwa-mode main {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+body.pwa-mode button {
+  background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+body.pwa-mode button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+body.pwa-mode button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Pulsante installa PWA */
+.install-btn {
+  transition: all 0.2s ease !important;
+}
+
+.install-btn:hover {
+  background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%) !important;
+  transform: scale(1.05) !important;
+}
+
+.install-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* Badge PWA */
+.pwa-badge {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Indicatore connettività */
+.connectivity-status {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Modalità offline e dark mode */
+@media (prefers-color-scheme: dark) {
+  .pwa-mode {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    color: #e0e0e0;
+  }
+
+  .pwa-mode main {
+    background: rgba(45, 45, 45, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Supporto per gesture native-like */
+@media (hover: none) and (pointer: coarse) {
+  /* Su dispositivi touch, ingrandisci pulsanti */
+  body.pwa-mode button {
+    min-height: 44px; /* Apple HIG */
+    font-size: 1.1rem;
+  }
+}
