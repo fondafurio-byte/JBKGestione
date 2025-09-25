@@ -1,4 +1,5 @@
 // Navigazione tra le pagine
+console.log('app.js loaded');
 const sections = {
   dashboard: document.getElementById('dashboard-section'),
   partite: document.getElementById('partite-section'),
@@ -101,11 +102,19 @@ function showDefaultAfterLogin() {
 }
 // Controllo sessione all'avvio
 window.addEventListener('DOMContentLoaded', async () => {
+  console.log('DOMContentLoaded fired');
+  document.getElementById('debug-msg').textContent = 'JS caricato, controllo sessione...';
   const { data: sessionData } = await supabaseClient.auth.getSession();
+  console.log('Session data:', sessionData);
+  document.getElementById('debug-msg').textContent += ' Sessione controllata.';
   if (sessionData && sessionData.session) {
-  loginSection.style.display = 'none';
-  showDefaultAfterLogin();
+    console.log('Session found, showing app');
+    document.getElementById('debug-msg').textContent += ' Sessione trovata, mostro app.';
+    loginSection.style.display = 'none';
+    showDefaultAfterLogin();
   } else {
+    console.log('No session, showing login');
+    document.getElementById('debug-msg').textContent += ' Nessuna sessione, mostro login.';
     loginSection.style.display = 'block';
     dashboardSection.style.display = 'none';
   }
@@ -114,6 +123,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 const SUPABASE_URL = 'https://hnmzfyzlyadsflhjwsgu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubXpmeXpseWFkc2ZsaGp3c2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMyMzIsImV4cCI6MjA3NDIxOTIzMn0.CxnEYe-1h2LZkfWwm0ZVJGhzFLWJOyBUAC5djVIwQHA';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log('Supabase client initialized');
 
 // Login
 const loginForm = document.getElementById('login-form');
@@ -126,6 +136,7 @@ const logoutBtn = document.getElementById('logout-btn');
 
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  console.log('Login form submitted');
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
   loginError.style.display = 'none';
@@ -138,6 +149,7 @@ loginForm.addEventListener('submit', async (e) => {
     .single();
 
   if (profileError || !profiles || !profiles.email) {
+    console.log('Username not found:', profileError);
     loginError.textContent = 'Username non trovato';
     loginError.style.display = 'block';
     return;
@@ -149,9 +161,11 @@ loginForm.addEventListener('submit', async (e) => {
     password: password
   });
   if (error) {
+    console.log('Login error:', error);
     loginError.textContent = error.message;
     loginError.style.display = 'block';
   } else {
+    console.log('Login successful');
     loginSection.style.display = 'none';
     dashboardSection.style.display = 'block';
     loadDashboard();
@@ -169,19 +183,27 @@ logoutBtn.addEventListener('click', async () => {
 // Carica dati dashboard
 
 async function loadDashboard() {
+  console.log('loadDashboard called');
   const dashboardContent = document.getElementById('dashboard-content');
-  if (!dashboardContent) return;
+  if (!dashboardContent) {
+    console.log('dashboard-content not found');
+    return;
+  }
+  console.log('dashboard-content found, loading data');
   dashboardContent.textContent = 'Caricamento...';
   // Fetch dati partite (come anteprima dashboard)
   const { data, error } = await supabaseClient.from('partite').select('*');
   if (error) {
+    console.log('Error fetching partite:', error);
     dashboardContent.textContent = 'Errore: ' + error.message;
     return;
   }
   if (!data || data.length === 0) {
+    console.log('No partite found');
     dashboardContent.textContent = 'Nessuna partita trovata.';
     return;
   }
+  console.log('Partite loaded:', data.length);
   let html = '<h2>Ultime Partite</h2>';
   html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
   html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
@@ -203,3 +225,4 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('service-worker.js');
   });
 }
+console.log('app.js fully loaded');
