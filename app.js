@@ -1,19 +1,27 @@
 // Navigazione tra le pagine
-console.log('app.js loaded');
+console.log('app.js loaded - START');
 
 // Configurazione Supabase
 const SUPABASE_URL = 'https://hnmzfyzlyadsflhjwsgu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhubXpmeXpseWFkc2ZsaGp3c2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMyMzIsImV4cCI6MjA3NDIxOTIzMn0.CxnEYe-1h2LZkfWwm0ZVJGhzFLWJOyBUAC5djVIwQHA';
 let supabaseClient;
+
+console.log('Checking for Supabase library...');
 if (!window.supabase) {
   console.error('Supabase library not loaded');
-  document.getElementById('debug-msg').textContent = 'Errore: libreria Supabase non caricata';
+  const debugMsg = document.getElementById('debug-msg');
+  if (debugMsg) {
+    debugMsg.textContent = 'Errore: libreria Supabase non caricata';
+    debugMsg.style.color = 'red';
+  }
 } else {
+  console.log('Supabase library found, creating client...');
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('Supabase client initialized');
+  console.log('Supabase client initialized successfully');
 }
 
 // Elementi DOM
+console.log('Getting DOM elements...');
 const sections = {
   dashboard: document.getElementById('dashboard-section'),
   partite: document.getElementById('partite-section'),
@@ -28,10 +36,25 @@ const dashboardSection = document.getElementById('dashboard-section');
 const loginError = document.getElementById('login-error');
 const logoutBtn = document.getElementById('logout-btn');
 
+console.log('DOM elements:', {
+  sections,
+  loginForm,
+  loginSection,
+  dashboardSection,
+  loginError,
+  logoutBtn
+});
+
 // Verifica che tutti gli elementi esistano
 if (!loginForm || !loginSection || !dashboardSection || !loginError || !logoutBtn) {
   console.error('Alcuni elementi DOM non trovati!');
-  document.getElementById('debug-msg').textContent = 'Errore: elementi DOM mancanti';
+  const debugMsg = document.getElementById('debug-msg');
+  if (debugMsg) {
+    debugMsg.textContent = 'Errore: elementi DOM mancanti';
+    debugMsg.style.color = 'red';
+  }
+} else {
+  console.log('Tutti gli elementi DOM trovati correttamente');
 }
 
 function showSection(page) {
@@ -41,13 +64,47 @@ function showSection(page) {
 
 // Gestione visibilità app
 function showApp() {
-  document.getElementById('login-section').style.display = 'none';
-  document.getElementById('app-content').style.display = 'flex';
+  console.log('showApp called');
+  const loginSection = document.getElementById('login-section');
+  const appContent = document.getElementById('app-content');
+
+  if (loginSection) {
+    loginSection.classList.remove('show');
+    loginSection.classList.add('hide');
+    console.log('login-section hidden via class');
+  } else {
+    console.error('login-section not found');
+  }
+
+  if (appContent) {
+    appContent.classList.remove('hide');
+    appContent.classList.add('show');
+    console.log('app-content shown via class');
+  } else {
+    console.error('app-content not found');
+  }
 }
 
 function showLogin() {
-  document.getElementById('login-section').style.display = 'block';
-  document.getElementById('app-content').style.display = 'none';
+  console.log('showLogin called');
+  const loginSection = document.getElementById('login-section');
+  const appContent = document.getElementById('app-content');
+
+  if (loginSection) {
+    loginSection.classList.remove('hide');
+    loginSection.classList.add('show');
+    console.log('login-section shown via class');
+  } else {
+    console.error('login-section not found');
+  }
+
+  if (appContent) {
+    appContent.classList.remove('show');
+    appContent.classList.add('hide');
+    console.log('app-content hidden via class');
+  } else {
+    console.error('app-content not found');
+  }
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -71,23 +128,116 @@ function showDefaultAfterLogin() {
 }
 
 // Controllo sessione all'avvio
+console.log('Setting up DOMContentLoaded listener...');
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('DOMContentLoaded fired');
-  document.getElementById('debug-msg').textContent = 'JS caricato, controllo sessione...';
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  console.log('Session data:', sessionData);
-  document.getElementById('debug-msg').textContent += ' Sessione controllata.';
-  if (sessionData && sessionData.session) {
-    console.log('Session found, showing app');
-    document.getElementById('debug-msg').textContent += ' Sessione trovata, mostro app.';
-    showApp();
-    showDefaultAfterLogin();
-  } else {
-    console.log('No session, showing login');
-    document.getElementById('debug-msg').textContent += ' Nessuna sessione, mostro login.';
-    showLogin();
+  const debugMsg = document.getElementById('debug-msg');
+  if (debugMsg) {
+    debugMsg.textContent = 'JS caricato, controllo sessione...';
+  }
+
+  if (!supabaseClient) {
+    console.error('Supabase client not available');
+    if (debugMsg) {
+      debugMsg.textContent += ' Errore: Supabase non disponibile';
+      debugMsg.style.color = 'red';
+    }
+    return;
+  }
+
+  try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    console.log('Session data:', sessionData);
+
+    if (debugMsg) {
+      debugMsg.textContent += ' Sessione controllata.';
+    }
+
+    if (sessionData && sessionData.session) {
+      console.log('Session found, showing app');
+      if (debugMsg) {
+        debugMsg.textContent += ' Sessione trovata, mostro app.';
+      }
+      showApp();
+      showDefaultAfterLogin();
+    } else {
+      console.log('No session, showing login');
+      if (debugMsg) {
+        debugMsg.textContent += ' Nessuna sessione, mostro login.';
+      }
+      showLogin();
+    }
+  } catch (error) {
+    console.error('Error during session check:', error);
+    if (debugMsg) {
+      debugMsg.textContent += ' Errore controllo sessione: ' + error.message;
+      debugMsg.style.color = 'red';
+    }
   }
 });
+
+// Fallback nel caso DOMContentLoaded non si triggeri
+setTimeout(() => {
+  console.log('Fallback timeout check');
+  const debugMsg = document.getElementById('debug-msg');
+  if (debugMsg && debugMsg.textContent === '') {
+    console.log('DOMContentLoaded might not have fired, running fallback');
+    debugMsg.textContent = 'Fallback: controllo sessione...';
+    // Simula il DOMContentLoaded
+    const event = new Event('DOMContentLoaded');
+    window.dispatchEvent(event);
+  }
+}, 1000);
+
+// Secondo fallback - controllo diretto se l'app è già inizializzata
+setTimeout(async () => {
+  console.log('Second fallback check');
+  const loginSection = document.getElementById('login-section');
+  const appContent = document.getElementById('app-content');
+
+  // Se entrambi gli elementi sono ancora nascosti/mostrati in modo anomalo, forza l'inizializzazione
+  if (loginSection && appContent &&
+      !loginSection.classList.contains('show') &&
+      !loginSection.classList.contains('hide') &&
+      !appContent.classList.contains('show') &&
+      !appContent.classList.contains('hide')) {
+
+    console.log('App not properly initialized, forcing session check');
+    const debugMsg = document.getElementById('debug-msg');
+    if (debugMsg) {
+      debugMsg.textContent = 'Forzando inizializzazione...';
+    }
+
+    if (!supabaseClient) {
+      console.error('Supabase client not available in fallback');
+      if (debugMsg) {
+        debugMsg.textContent += ' Errore: Supabase non disponibile';
+        debugMsg.style.color = 'red';
+      }
+      return;
+    }
+
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      console.log('Fallback session data:', sessionData);
+
+      if (sessionData && sessionData.session) {
+        console.log('Fallback: Session found, showing app');
+        showApp();
+        showDefaultAfterLogin();
+      } else {
+        console.log('Fallback: No session, showing login');
+        showLogin();
+      }
+    } catch (error) {
+      console.error('Error in fallback session check:', error);
+      if (debugMsg) {
+        debugMsg.textContent += ' Errore fallback: ' + error.message;
+        debugMsg.style.color = 'red';
+      }
+    }
+  }
+}, 2000);
 
 // Login
 loginForm.addEventListener('submit', async (e) => {
@@ -224,10 +374,168 @@ function loadAllenamenti() {
   });
 }
 
+function loadDashboard() {
+  const section = document.getElementById('dashboard-section');
+  if (!section) return;
+
+  section.innerHTML = '<h2>Dashboard</h2><div>Caricamento dati...</div>';
+
+  // Carica dati da tutte le tabelle per creare statistiche riepilogative
+  Promise.all([
+    supabaseClient.from('partite').select('*'),
+    supabaseClient.from('giocatori').select('*'),
+    supabaseClient.from('allenamenti').select('*')
+  ]).then(([partiteRes, giocatoriRes, allenamentiRes]) => {
+    const partite = partiteRes.data || [];
+    const giocatori = giocatoriRes.data || [];
+    const allenamenti = allenamentiRes.data || [];
+
+    console.log('Dashboard data loaded:', { partite: partite.length, giocatori: giocatori.length, allenamenti: allenamenti.length });
+
+    let html = '<h2>Dashboard</h2>';
+
+    // Statistiche riepilogative
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
+    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${partite.length}</h3>
+      <p>Partite Totali</p>
+    </div>`;
+    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${giocatori.length}</h3>
+      <p>Giocatori</p>
+    </div>`;
+    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${allenamenti.length}</h3>
+      <p>Allenamenti</p>
+    </div>`;
+    html += '</div>';
+
+    // Ultime partite
+    if (partite.length > 0) {
+      html += '<h3>Ultime Partite</h3>';
+      html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+      html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Risultato</th></tr>';
+      partite.slice(-3).reverse().forEach(partita => {
+        html += `<tr style="border-bottom:1px solid #eee;">
+          <td>${partita.data || ''}</td>
+          <td>${partita.avversario || ''}</td>
+          <td>${partita.risultato || ''}</td>
+        </tr>`;
+      });
+      html += '</table>';
+    }
+
+    // Prossimi allenamenti
+    if (allenamenti.length > 0) {
+      html += '<h3>Prossimi Allenamenti</h3>';
+      html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+      html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Luogo</th><th>Note</th></tr>';
+      allenamenti.slice(-3).reverse().forEach(allenamento => {
+        html += `<tr style="border-bottom:1px solid #eee;">
+          <td>${allenamento.data || ''}</td>
+          <td>${allenamento.luogo || ''}</td>
+          <td>${allenamento.note || ''}</td>
+        </tr>`;
+      });
+      html += '</table>';
+    }
+
+    section.innerHTML = html;
+  }).catch(error => {
+    console.error('Error loading dashboard:', error);
+    section.innerHTML = '<h2>Dashboard</h2><div style="color:red">Errore nel caricamento dei dati: ' + error.message + '</div>';
+  });
+}
+
 function loadStatistiche() {
-  const el = document.getElementById('statistiche-section');
-  if (!el) return;
-  el.innerHTML = '<h2>Statistiche</h2><div>Statistiche in sviluppo...</div>';
+  const section = document.getElementById('statistiche-section');
+  if (!section) return;
+
+  section.innerHTML = '<h2>Statistiche</h2><div>Caricamento statistiche...</div>';
+
+  // Carica tutti i dati per calcolare statistiche
+  Promise.all([
+    supabaseClient.from('partite').select('*'),
+    supabaseClient.from('giocatori').select('*'),
+    supabaseClient.from('allenamenti').select('*')
+  ]).then(([partiteRes, giocatoriRes, allenamentiRes]) => {
+    const partite = partiteRes.data || [];
+    const giocatori = giocatoriRes.data || [];
+    const allenamenti = allenamentiRes.data || [];
+
+    console.log('Statistics data loaded:', { partite: partite.length, giocatori: giocatori.length, allenamenti: allenamenti.length });
+
+    let html = '<h2>Statistiche Squadra</h2>';
+
+    // Calcola statistiche delle partite
+    const vittorie = partite.filter(p => p.risultato && p.risultato.toLowerCase().includes('vinto')).length;
+    const pareggi = partite.filter(p => p.risultato && p.risultato.toLowerCase().includes('pareggio')).length;
+    const sconfitte = partite.filter(p => p.risultato && !p.risultato.toLowerCase().includes('vinto') && !p.risultato.toLowerCase().includes('pareggio')).length;
+
+    // Statistiche partite
+    html += '<h3>Risultati Partite</h3>';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
+    html += `<div style="background: #4caf50; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${vittorie}</h3>
+      <p>Vittorie</p>
+    </div>`;
+    html += `<div style="background: #ff9800; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${pareggi}</h3>
+      <p>Pareggi</p>
+    </div>`;
+    html += `<div style="background: #f44336; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${sconfitte}</h3>
+      <p>Sconfitte</p>
+    </div>`;
+    html += `<div style="background: #2196f3; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
+      <h3>${partite.length}</h3>
+      <p>Totale Partite</p>
+    </div>`;
+    html += '</div>';
+
+    // Statistiche giocatori per ruolo
+    const ruoli = {};
+    giocatori.forEach(g => {
+      const ruolo = g.ruolo || 'Non specificato';
+      ruoli[ruolo] = (ruoli[ruolo] || 0) + 1;
+    });
+
+    html += '<h3>Giocatori per Ruolo</h3>';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
+    Object.entries(ruoli).forEach(([ruolo, count]) => {
+      html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
+        <h3>${count}</h3>
+        <p>${ruolo}</p>
+      </div>`;
+    });
+    html += '</div>';
+
+    // Statistiche allenamenti
+    const mesi = {};
+    allenamenti.forEach(a => {
+      if (a.data) {
+        const mese = new Date(a.data).getMonth() + 1;
+        mesi[mese] = (mesi[mese] || 0) + 1;
+      }
+    });
+
+    html += '<h3>Allenamenti per Mese</h3>';
+    html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
+    html += '<tr style="background:#b71c1c;color:#fff;"><th>Mese</th><th>Allenamenti</th></tr>';
+    Object.entries(mesi).sort(([a], [b]) => a - b).forEach(([mese, count]) => {
+      const nomeMese = new Date(2024, mese - 1, 1).toLocaleString('it-IT', { month: 'long' });
+      html += `<tr style="border-bottom:1px solid #eee;">
+        <td>${nomeMese}</td>
+        <td>${count}</td>
+      </tr>`;
+    });
+    html += '</table>';
+
+    section.innerHTML = html;
+  }).catch(error => {
+    console.error('Error loading statistics:', error);
+    section.innerHTML = '<h2>Statistiche</h2><div style="color:red">Errore nel caricamento delle statistiche: ' + error.message + '</div>';
+  });
 }
 
 // Placeholder per funzioni mancanti
