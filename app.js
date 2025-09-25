@@ -524,19 +524,72 @@ async function loadDashboard() {
     return;
   }
   console.log('Partite loaded:', data.length);
-  let html = '<h2>Ultime Partite</h2>';
-  html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-  html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Punti</th><th>Risultato</th></tr>';
+
+  // Clear loading content
+  section.innerHTML = '';
+
+  // Add title
+  const title = document.createElement('h2');
+  title.textContent = 'Ultime Partite';
+  section.appendChild(title);
+
+  // Create table
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.marginTop = '1rem';
+
+  // Table header
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  headerRow.style.background = '#b71c1c';
+  headerRow.style.color = '#fff';
+
+  const thData = document.createElement('th');
+  thData.textContent = 'Data';
+  headerRow.appendChild(thData);
+
+  const thAvversario = document.createElement('th');
+  thAvversario.textContent = 'Avversario';
+  headerRow.appendChild(thAvversario);
+
+  const thPunti = document.createElement('th');
+  thPunti.textContent = 'Punti';
+  headerRow.appendChild(thPunti);
+
+  const thRisultato = document.createElement('th');
+  thRisultato.textContent = 'Risultato';
+  headerRow.appendChild(thRisultato);
+
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Table body
+  const tbody = document.createElement('tbody');
   data.slice(-5).reverse().forEach(partita => {
-    html += `<tr style="border-bottom:1px solid #eee;">
-      <td>${partita.data || ''}</td>
-      <td>${partita.avversario || ''}</td>
-      <td>${partita.punti || ''}</td>
-      <td>${partita.risultato || ''}</td>
-    </tr>`;
+    const row = document.createElement('tr');
+    row.style.borderBottom = '1px solid #eee';
+
+    const tdData = document.createElement('td');
+    tdData.textContent = partita.data || '';
+    row.appendChild(tdData);
+
+    const tdAvversario = document.createElement('td');
+    tdAvversario.textContent = partita.avversario || '';
+    row.appendChild(tdAvversario);
+
+    const tdPunti = document.createElement('td');
+    tdPunti.textContent = partita.punti || '';
+    row.appendChild(tdPunti);
+
+    const tdRisultato = document.createElement('td');
+    tdRisultato.textContent = partita.risultato || '';
+    row.appendChild(tdRisultato);
+
+    tbody.appendChild(row);
   });
-  html += '</table>';
-  section.innerHTML = html;
+  table.appendChild(tbody);
+  section.appendChild(table);
 }
 
 // Visualizzazione dati per ogni sezione
@@ -724,16 +777,39 @@ function loadGiocatori() {
   const section = document.getElementById('giocatori-section');
   if (!section) return;
 
-  section.innerHTML = `
-    <h2>Giocatori</h2>
-    <div class="actions-bar">
-      <button onclick="showAddGiocatoreForm()" class="btn-add">➕ Aggiungi Giocatore</button>
-      <button onclick="loadGiocatoriList()" class="btn-list">📋 Lista Giocatori</button>
-    </div>
-    <div id="giocatori-content">
-      <div>Caricamento giocatori...</div>
-    </div>
-  `;
+  // Clear existing content
+  section.innerHTML = '';
+
+  // Create title
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Giocatori';
+  section.appendChild(h2);
+
+  // Create actions bar
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'actions-bar';
+
+  const addButton = document.createElement('button');
+  addButton.className = 'btn-add';
+  addButton.textContent = '➕ Aggiungi Giocatore';
+  addButton.onclick = showAddGiocatoreForm;
+  actionsBar.appendChild(addButton);
+
+  const listButton = document.createElement('button');
+  listButton.className = 'btn-list';
+  listButton.textContent = '📋 Lista Giocatori';
+  listButton.onclick = loadGiocatoriList;
+  actionsBar.appendChild(listButton);
+
+  section.appendChild(actionsBar);
+
+  // Create content container
+  const content = document.createElement('div');
+  content.id = 'giocatori-content';
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento giocatori...';
+  content.appendChild(loadingDiv);
+  section.appendChild(content);
 
   loadGiocatoriList();
 }
@@ -742,15 +818,35 @@ function loadAllenamenti() {
   const section = document.getElementById('allenamenti-section');
   if (!section) return;
 
-  section.innerHTML = `
-    <h2>Allenamenti</h2>
-    <div class="actions-bar">
-      <button onclick="showAddAllenamentoForm()" class="btn-add">➕ Aggiungi Allenamento</button>
-    </div>
-    <div id="allenamenti-content">
-      <div>Caricamento allenamenti...</div>
-    </div>
-  `;
+  // Clear existing content
+  section.innerHTML = '';
+
+  // Create title
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Allenamenti';
+  section.appendChild(h2);
+
+  // Create actions bar
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'actions-bar';
+
+  const addButton = document.createElement('button');
+  addButton.onclick = showAddAllenamentoForm;
+  addButton.className = 'btn-add';
+  addButton.textContent = '➕ Aggiungi Allenamento';
+  actionsBar.appendChild(addButton);
+
+  section.appendChild(actionsBar);
+
+  // Create content container
+  const content = document.createElement('div');
+  content.id = 'allenamenti-content';
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento allenamenti...';
+  content.appendChild(loadingDiv);
+
+  section.appendChild(content);
 
   loadAllenamentiList();
 }
@@ -759,43 +855,102 @@ function loadAllenamentiList() {
   const content = document.getElementById('allenamenti-content');
   if (!content) return;
 
-  content.innerHTML = '<div>Caricamento allenamenti...</div>';
+  // Clear existing content
+  content.innerHTML = '';
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento allenamenti...';
+  content.appendChild(loadingDiv);
 
   supabaseClient.from('allenamenti').select('*').order('data', { ascending: false }).then(({ data, error }) => {
     if (error) {
-      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      content.innerHTML = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.style.color = 'red';
+      errorDiv.textContent = 'Errore: ' + error.message;
+      content.appendChild(errorDiv);
       return;
     }
 
     if (!data || data.length === 0) {
-      content.innerHTML = '<div>Nessun allenamento trovato.</div>';
+      content.innerHTML = '';
+      const noDataDiv = document.createElement('div');
+      noDataDiv.textContent = 'Nessun allenamento trovato.';
+      content.appendChild(noDataDiv);
       return;
     }
 
-    let html = '<div class="allenamenti-list">';
-    data.forEach(a => {
-      html += `
-        <div class="allenamento-card">
-          <div class="allenamento-info">
-            <div class="allenamento-header">
-              <strong>💪 Allenamento</strong>
-            </div>
-            <div class="allenamento-details">
-              📅 ${a.data} ${a.ora ? `⏰ ${a.ora}` : ''}<br>
-              📍 ${a.luogo || 'Luogo non specificato'}
-              ${a.note ? `<br>📝 ${a.note}` : ''}
-            </div>
-          </div>
-          <div class="allenamento-actions">
-            <button onclick="editAllenamento(${a.id})" class="btn-edit">✏️</button>
-            <button onclick="deleteAllenamento(${a.id})" class="btn-delete">🗑️</button>
-          </div>
-        </div>
-      `;
-    });
-    html += '</div>';
+    // Clear loading content
+    content.innerHTML = '';
 
-    content.innerHTML = html;
+    const allenamentiList = document.createElement('div');
+    allenamentiList.className = 'allenamenti-list';
+
+    data.forEach(a => {
+      // Create allenamento card
+      const card = document.createElement('div');
+      card.className = 'allenamento-card';
+
+      // Create allenamento info
+      const info = document.createElement('div');
+      info.className = 'allenamento-info';
+
+      // Create header
+      const header = document.createElement('div');
+      header.className = 'allenamento-header';
+
+      const strong = document.createElement('strong');
+      strong.textContent = '💪 Allenamento';
+      header.appendChild(strong);
+
+      info.appendChild(header);
+
+      // Create details
+      const details = document.createElement('div');
+      details.className = 'allenamento-details';
+
+      // Add date and time
+      const dateText = document.createElement('div');
+      dateText.textContent = `📅 ${a.data} ${a.ora ? `⏰ ${a.ora}` : ''}`;
+      details.appendChild(dateText);
+
+      // Add location
+      const locationText = document.createElement('div');
+      locationText.textContent = `📍 ${a.luogo || 'Luogo non specificato'}`;
+      details.appendChild(locationText);
+
+      // Add notes if present
+      if (a.note) {
+        const noteText = document.createElement('div');
+        noteText.textContent = `📝 ${a.note}`;
+        details.appendChild(noteText);
+      }
+
+      info.appendChild(details);
+
+      card.appendChild(info);
+
+      // Create actions
+      const actions = document.createElement('div');
+      actions.className = 'allenamento-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn-edit';
+      editBtn.textContent = '✏️';
+      editBtn.onclick = () => editAllenamento(a.id);
+      actions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-delete';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.onclick = () => deleteAllenamento(a.id);
+      actions.appendChild(deleteBtn);
+
+      card.appendChild(actions);
+      allenamentiList.appendChild(card);
+    });
+
+    content.appendChild(allenamentiList);
   });
 }
 
@@ -803,7 +958,14 @@ function loadDashboard() {
   const section = document.getElementById('dashboard-section');
   if (!section) return;
 
-  section.innerHTML = '<h2>Dashboard</h2><div>Caricamento dati...</div>';
+  // Clear existing content and add loading message
+  section.innerHTML = '';
+  const loadingH2 = document.createElement('h2');
+  loadingH2.textContent = 'Dashboard';
+  section.appendChild(loadingH2);
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento dati...';
+  section.appendChild(loadingDiv);
 
   // Carica dati da tutte le tabelle per creare statistiche riepilogative
   Promise.all([
@@ -817,58 +979,186 @@ function loadDashboard() {
 
     console.log('Dashboard data loaded:', { partite: partite.length, giocatori: giocatori.length, allenamenti: allenamenti.length });
 
-    let html = '<h2>Dashboard</h2>';
+    // Clear loading content
+    section.innerHTML = '';
+
+    // Add title
+    const title = document.createElement('h2');
+    title.textContent = 'Dashboard';
+    section.appendChild(title);
 
     // Statistiche riepilogative
-    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
-    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${partite.length}</h3>
-      <p>Partite Totali</p>
-    </div>`;
-    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${giocatori.length}</h3>
-      <p>Giocatori</p>
-    </div>`;
-    html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${allenamenti.length}</h3>
-      <p>Allenamenti</p>
-    </div>`;
-    html += '</div>';
+    const statsGrid = document.createElement('div');
+    statsGrid.style.display = 'grid';
+    statsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+    statsGrid.style.gap = '1rem';
+    statsGrid.style.marginBottom = '2rem';
+
+    // Partite totali
+    const partiteCard = document.createElement('div');
+    partiteCard.style.background = '#f5f5f5';
+    partiteCard.style.padding = '1rem';
+    partiteCard.style.borderRadius = '8px';
+    partiteCard.style.textAlign = 'center';
+    const partiteH3 = document.createElement('h3');
+    partiteH3.textContent = partite.length;
+    partiteCard.appendChild(partiteH3);
+    const partiteP = document.createElement('p');
+    partiteP.textContent = 'Partite Totali';
+    partiteCard.appendChild(partiteP);
+    statsGrid.appendChild(partiteCard);
+
+    // Giocatori
+    const giocatoriCard = document.createElement('div');
+    giocatoriCard.style.background = '#f5f5f5';
+    giocatoriCard.style.padding = '1rem';
+    giocatoriCard.style.borderRadius = '8px';
+    giocatoriCard.style.textAlign = 'center';
+    const giocatoriH3 = document.createElement('h3');
+    giocatoriH3.textContent = giocatori.length;
+    giocatoriCard.appendChild(giocatoriH3);
+    const giocatoriP = document.createElement('p');
+    giocatoriP.textContent = 'Giocatori';
+    giocatoriCard.appendChild(giocatoriP);
+    statsGrid.appendChild(giocatoriCard);
+
+    // Allenamenti
+    const allenamentiCard = document.createElement('div');
+    allenamentiCard.style.background = '#f5f5f5';
+    allenamentiCard.style.padding = '1rem';
+    allenamentiCard.style.borderRadius = '8px';
+    allenamentiCard.style.textAlign = 'center';
+    const allenamentiH3 = document.createElement('h3');
+    allenamentiH3.textContent = allenamenti.length;
+    allenamentiCard.appendChild(allenamentiH3);
+    const allenamentiP = document.createElement('p');
+    allenamentiP.textContent = 'Allenamenti';
+    allenamentiCard.appendChild(allenamentiP);
+    statsGrid.appendChild(allenamentiCard);
+
+    section.appendChild(statsGrid);
 
     // Ultime partite
     if (partite.length > 0) {
-      html += '<h3>Ultime Partite</h3>';
-      html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-      html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Avversario</th><th>Risultato</th></tr>';
+      const ultimePartiteH3 = document.createElement('h3');
+      ultimePartiteH3.textContent = 'Ultime Partite';
+      section.appendChild(ultimePartiteH3);
+
+      const partiteTable = document.createElement('table');
+      partiteTable.style.width = '100%';
+      partiteTable.style.borderCollapse = 'collapse';
+      partiteTable.style.marginTop = '1rem';
+
+      // Table header
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      headerRow.style.background = '#b71c1c';
+      headerRow.style.color = '#fff';
+
+      const thData = document.createElement('th');
+      thData.textContent = 'Data';
+      headerRow.appendChild(thData);
+
+      const thAvversario = document.createElement('th');
+      thAvversario.textContent = 'Avversario';
+      headerRow.appendChild(thAvversario);
+
+      const thRisultato = document.createElement('th');
+      thRisultato.textContent = 'Risultato';
+      headerRow.appendChild(thRisultato);
+
+      thead.appendChild(headerRow);
+      partiteTable.appendChild(thead);
+
+      // Table body
+      const tbody = document.createElement('tbody');
       partite.slice(-3).reverse().forEach(partita => {
-        html += `<tr style="border-bottom:1px solid #eee;">
-          <td>${partita.data || ''}</td>
-          <td>${partita.avversario || ''}</td>
-          <td>${partita.risultato || ''}</td>
-        </tr>`;
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #eee';
+
+        const tdData = document.createElement('td');
+        tdData.textContent = partita.data || '';
+        row.appendChild(tdData);
+
+        const tdAvversario = document.createElement('td');
+        tdAvversario.textContent = partita.avversario || '';
+        row.appendChild(tdAvversario);
+
+        const tdRisultato = document.createElement('td');
+        tdRisultato.textContent = partita.risultato || '';
+        row.appendChild(tdRisultato);
+
+        tbody.appendChild(row);
       });
-      html += '</table>';
+      partiteTable.appendChild(tbody);
+      section.appendChild(partiteTable);
     }
 
     // Prossimi allenamenti
     if (allenamenti.length > 0) {
-      html += '<h3>Prossimi Allenamenti</h3>';
-      html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-      html += '<tr style="background:#b71c1c;color:#fff;"><th>Data</th><th>Luogo</th><th>Note</th></tr>';
-      allenamenti.slice(-3).reverse().forEach(allenamento => {
-        html += `<tr style="border-bottom:1px solid #eee;">
-          <td>${allenamento.data || ''}</td>
-          <td>${allenamento.luogo || ''}</td>
-          <td>${allenamento.note || ''}</td>
-        </tr>`;
-      });
-      html += '</table>';
-    }
+      const prossimiAllenamentiH3 = document.createElement('h3');
+      prossimiAllenamentiH3.textContent = 'Prossimi Allenamenti';
+      section.appendChild(prossimiAllenamentiH3);
 
-    section.innerHTML = html;
+      const allenamentiTable = document.createElement('table');
+      allenamentiTable.style.width = '100%';
+      allenamentiTable.style.borderCollapse = 'collapse';
+      allenamentiTable.style.marginTop = '1rem';
+
+      // Table header
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      headerRow.style.background = '#b71c1c';
+      headerRow.style.color = '#fff';
+
+      const thData = document.createElement('th');
+      thData.textContent = 'Data';
+      headerRow.appendChild(thData);
+
+      const thLuogo = document.createElement('th');
+      thLuogo.textContent = 'Luogo';
+      headerRow.appendChild(thLuogo);
+
+      const thNote = document.createElement('th');
+      thNote.textContent = 'Note';
+      headerRow.appendChild(thNote);
+
+      thead.appendChild(headerRow);
+      allenamentiTable.appendChild(thead);
+
+      // Table body
+      const tbody = document.createElement('tbody');
+      allenamenti.slice(-3).reverse().forEach(allenamento => {
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #eee';
+
+        const tdData = document.createElement('td');
+        tdData.textContent = allenamento.data || '';
+        row.appendChild(tdData);
+
+        const tdLuogo = document.createElement('td');
+        tdLuogo.textContent = allenamento.luogo || '';
+        row.appendChild(tdLuogo);
+
+        const tdNote = document.createElement('td');
+        tdNote.textContent = allenamento.note || '';
+        row.appendChild(tdNote);
+
+        tbody.appendChild(row);
+      });
+      allenamentiTable.appendChild(tbody);
+      section.appendChild(allenamentiTable);
+    }
   }).catch(error => {
     console.error('Error loading dashboard:', error);
-    section.innerHTML = '<h2>Dashboard</h2><div style="color:red">Errore nel caricamento dei dati: ' + error.message + '</div>';
+    section.innerHTML = '';
+    const errorH2 = document.createElement('h2');
+    errorH2.textContent = 'Dashboard';
+    section.appendChild(errorH2);
+    const errorDiv = document.createElement('div');
+    errorDiv.style.color = 'red';
+    errorDiv.textContent = 'Errore nel caricamento dei dati: ' + error.message;
+    section.appendChild(errorDiv);
   });
 }
 
@@ -876,7 +1166,14 @@ function loadStatistiche() {
   const section = document.getElementById('statistiche-section');
   if (!section) return;
 
-  section.innerHTML = '<h2>Statistiche</h2><div>Caricamento statistiche...</div>';
+  // Clear existing content and add loading message
+  section.innerHTML = '';
+  const loadingH2 = document.createElement('h2');
+  loadingH2.textContent = 'Statistiche';
+  section.appendChild(loadingH2);
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento statistiche...';
+  section.appendChild(loadingDiv);
 
   // Carica tutti i dati per calcolare statistiche
   Promise.all([
@@ -890,7 +1187,13 @@ function loadStatistiche() {
 
     console.log('Statistics data loaded:', { partite: partite.length, giocatori: giocatori.length, allenamenti: allenamenti.length });
 
-    let html = '<h2>Statistiche Squadra</h2>';
+    // Clear loading content
+    section.innerHTML = '';
+
+    // Add title
+    const title = document.createElement('h2');
+    title.textContent = 'Statistiche Squadra';
+    section.appendChild(title);
 
     // Calcola statistiche delle partite
     const vittorie = partite.filter(p => p.risultato && p.risultato.toLowerCase().includes('vinto')).length;
@@ -898,25 +1201,77 @@ function loadStatistiche() {
     const sconfitte = partite.filter(p => p.risultato && !p.risultato.toLowerCase().includes('vinto') && !p.risultato.toLowerCase().includes('pareggio')).length;
 
     // Statistiche partite
-    html += '<h3>Risultati Partite</h3>';
-    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
-    html += `<div style="background: #4caf50; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${vittorie}</h3>
-      <p>Vittorie</p>
-    </div>`;
-    html += `<div style="background: #ff9800; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${pareggi}</h3>
-      <p>Pareggi</p>
-    </div>`;
-    html += `<div style="background: #f44336; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${sconfitte}</h3>
-      <p>Sconfitte</p>
-    </div>`;
-    html += `<div style="background: #2196f3; color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-      <h3>${partite.length}</h3>
-      <p>Totale Partite</p>
-    </div>`;
-    html += '</div>';
+    const risultatiH3 = document.createElement('h3');
+    risultatiH3.textContent = 'Risultati Partite';
+    section.appendChild(risultatiH3);
+
+    const risultatiGrid = document.createElement('div');
+    risultatiGrid.style.display = 'grid';
+    risultatiGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(150px, 1fr))';
+    risultatiGrid.style.gap = '1rem';
+    risultatiGrid.style.marginBottom = '2rem';
+
+    // Vittorie
+    const vittorieCard = document.createElement('div');
+    vittorieCard.style.background = '#4caf50';
+    vittorieCard.style.color = 'white';
+    vittorieCard.style.padding = '1rem';
+    vittorieCard.style.borderRadius = '8px';
+    vittorieCard.style.textAlign = 'center';
+    const vittorieH3 = document.createElement('h3');
+    vittorieH3.textContent = vittorie;
+    vittorieCard.appendChild(vittorieH3);
+    const vittorieP = document.createElement('p');
+    vittorieP.textContent = 'Vittorie';
+    vittorieCard.appendChild(vittorieP);
+    risultatiGrid.appendChild(vittorieCard);
+
+    // Pareggi
+    const pareggiCard = document.createElement('div');
+    pareggiCard.style.background = '#ff9800';
+    pareggiCard.style.color = 'white';
+    pareggiCard.style.padding = '1rem';
+    pareggiCard.style.borderRadius = '8px';
+    pareggiCard.style.textAlign = 'center';
+    const pareggiH3 = document.createElement('h3');
+    pareggiH3.textContent = pareggi;
+    pareggiCard.appendChild(pareggiH3);
+    const pareggiP = document.createElement('p');
+    pareggiP.textContent = 'Pareggi';
+    pareggiCard.appendChild(pareggiP);
+    risultatiGrid.appendChild(pareggiCard);
+
+    // Sconfitte
+    const sconfitteCard = document.createElement('div');
+    sconfitteCard.style.background = '#f44336';
+    sconfitteCard.style.color = 'white';
+    sconfitteCard.style.padding = '1rem';
+    sconfitteCard.style.borderRadius = '8px';
+    sconfitteCard.style.textAlign = 'center';
+    const sconfitteH3 = document.createElement('h3');
+    sconfitteH3.textContent = sconfitte;
+    sconfitteCard.appendChild(sconfitteH3);
+    const sconfitteP = document.createElement('p');
+    sconfitteP.textContent = 'Sconfitte';
+    sconfitteCard.appendChild(sconfitteP);
+    risultatiGrid.appendChild(sconfitteCard);
+
+    // Totale partite
+    const totaleCard = document.createElement('div');
+    totaleCard.style.background = '#2196f3';
+    totaleCard.style.color = 'white';
+    totaleCard.style.padding = '1rem';
+    totaleCard.style.borderRadius = '8px';
+    totaleCard.style.textAlign = 'center';
+    const totaleH3 = document.createElement('h3');
+    totaleH3.textContent = partite.length;
+    totaleCard.appendChild(totaleH3);
+    const totaleP = document.createElement('p');
+    totaleP.textContent = 'Totale Partite';
+    totaleCard.appendChild(totaleP);
+    risultatiGrid.appendChild(totaleCard);
+
+    section.appendChild(risultatiGrid);
 
     // Statistiche giocatori per ruolo
     const ruoli = {};
@@ -925,15 +1280,32 @@ function loadStatistiche() {
       ruoli[ruolo] = (ruoli[ruolo] || 0) + 1;
     });
 
-    html += '<h3>Giocatori per Ruolo</h3>';
-    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">';
+    const ruoliH3 = document.createElement('h3');
+    ruoliH3.textContent = 'Giocatori per Ruolo';
+    section.appendChild(ruoliH3);
+
+    const ruoliGrid = document.createElement('div');
+    ruoliGrid.style.display = 'grid';
+    ruoliGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(150px, 1fr))';
+    ruoliGrid.style.gap = '1rem';
+    ruoliGrid.style.marginBottom = '2rem';
+
     Object.entries(ruoli).forEach(([ruolo, count]) => {
-      html += `<div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; text-align: center;">
-        <h3>${count}</h3>
-        <p>${ruolo}</p>
-      </div>`;
+      const ruoloCard = document.createElement('div');
+      ruoloCard.style.background = '#f5f5f5';
+      ruoloCard.style.padding = '1rem';
+      ruoloCard.style.borderRadius = '8px';
+      ruoloCard.style.textAlign = 'center';
+      const ruoloH3 = document.createElement('h3');
+      ruoloH3.textContent = count;
+      ruoloCard.appendChild(ruoloH3);
+      const ruoloP = document.createElement('p');
+      ruoloP.textContent = ruolo;
+      ruoloCard.appendChild(ruoloP);
+      ruoliGrid.appendChild(ruoloCard);
     });
-    html += '</div>';
+
+    section.appendChild(ruoliGrid);
 
     // Statistiche allenamenti
     const mesi = {};
@@ -944,22 +1316,61 @@ function loadStatistiche() {
       }
     });
 
-    html += '<h3>Allenamenti per Mese</h3>';
-    html += '<table style="width:100%;border-collapse:collapse;margin-top:1rem;">';
-    html += '<tr style="background:#b71c1c;color:#fff;"><th>Mese</th><th>Allenamenti</th></tr>';
+    const allenamentiH3 = document.createElement('h3');
+    allenamentiH3.textContent = 'Allenamenti per Mese';
+    section.appendChild(allenamentiH3);
+
+    const allenamentiTable = document.createElement('table');
+    allenamentiTable.style.width = '100%';
+    allenamentiTable.style.borderCollapse = 'collapse';
+    allenamentiTable.style.marginTop = '1rem';
+
+    // Table header
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    headerRow.style.background = '#b71c1c';
+    headerRow.style.color = '#fff';
+
+    const thMese = document.createElement('th');
+    thMese.textContent = 'Mese';
+    headerRow.appendChild(thMese);
+
+    const thAllenamenti = document.createElement('th');
+    thAllenamenti.textContent = 'Allenamenti';
+    headerRow.appendChild(thAllenamenti);
+
+    thead.appendChild(headerRow);
+    allenamentiTable.appendChild(thead);
+
+    // Table body
+    const tbody = document.createElement('tbody');
     Object.entries(mesi).sort(([a], [b]) => a - b).forEach(([mese, count]) => {
       const nomeMese = new Date(2024, mese - 1, 1).toLocaleString('it-IT', { month: 'long' });
-      html += `<tr style="border-bottom:1px solid #eee;">
-        <td>${nomeMese}</td>
-        <td>${count}</td>
-      </tr>`;
-    });
-    html += '</table>';
+      const row = document.createElement('tr');
+      row.style.borderBottom = '1px solid #eee';
 
-    section.innerHTML = html;
+      const tdMese = document.createElement('td');
+      tdMese.textContent = nomeMese;
+      row.appendChild(tdMese);
+
+      const tdCount = document.createElement('td');
+      tdCount.textContent = count;
+      row.appendChild(tdCount);
+
+      tbody.appendChild(row);
+    });
+    allenamentiTable.appendChild(tbody);
+    section.appendChild(allenamentiTable);
   }).catch(error => {
     console.error('Error loading statistics:', error);
-    section.innerHTML = '<h2>Statistiche</h2><div style="color:red">Errore nel caricamento delle statistiche: ' + error.message + '</div>';
+    section.innerHTML = '';
+    const errorH2 = document.createElement('h2');
+    errorH2.textContent = 'Statistiche';
+    section.appendChild(errorH2);
+    const errorDiv = document.createElement('div');
+    errorDiv.style.color = 'red';
+    errorDiv.textContent = 'Errore nel caricamento delle statistiche: ' + error.message;
+    section.appendChild(errorDiv);
   });
 }
 
@@ -967,41 +1378,78 @@ function loadGiocatoriList() {
   const content = document.getElementById('giocatori-content');
   if (!content) return;
 
-  content.innerHTML = '<div>Caricamento giocatori...</div>';
+  // Clear existing content and add loading message
+  content.innerHTML = '';
+  const loadingDiv = document.createElement('div');
+  loadingDiv.textContent = 'Caricamento giocatori...';
+  content.appendChild(loadingDiv);
 
   supabaseClient.from('giocatori').select('*').then(({ data, error }) => {
     if (error) {
-      content.innerHTML = '<div style="color:red">Errore: ' + error.message + '</div>';
+      content.innerHTML = '';
+      const errorDiv = document.createElement('div');
+      errorDiv.style.color = 'red';
+      errorDiv.textContent = 'Errore: ' + error.message;
+      content.appendChild(errorDiv);
       return;
     }
 
     if (!data || data.length === 0) {
-      content.innerHTML = '<div>Nessun giocatore trovato.</div>';
+      content.innerHTML = '';
+      const noDataDiv = document.createElement('div');
+      noDataDiv.textContent = 'Nessun giocatore trovato.';
+      content.appendChild(noDataDiv);
       return;
     }
 
-    let html = '<div class="giocatori-list">';
+    // Clear loading content
+    content.innerHTML = '';
+
+    const giocatoriList = document.createElement('div');
+    giocatoriList.className = 'giocatori-list';
+
     data.forEach(g => {
       const numeroText = g.numero_maglia ? `#${g.numero_maglia}` : 'N/A';
       const idoneitaIcon = g.idoneita_sportiva ? '✅' : '❌';
       const idoneitaText = g.idoneita_sportiva ? 'Idoneo' : 'Non Idoneo';
 
-      html += `
-        <div class="giocatore-card">
-          <div class="giocatore-info">
-            <strong>${numeroText} - ${g.nome} ${g.cognome}</strong><br>
-            <small>Ruolo: ${g.ruolo || 'N/A'} | ${idoneitaIcon} ${idoneitaText}</small>
-          </div>
-          <div class="giocatore-actions">
-            <button onclick="editGiocatore(${g.id})" class="btn-edit">✏️</button>
-            <button onclick="deleteGiocatore(${g.id})" class="btn-delete">🗑️</button>
-          </div>
-        </div>
-      `;
-    });
-    html += '</div>';
+      const giocatoreCard = document.createElement('div');
+      giocatoreCard.className = 'giocatore-card';
 
-    content.innerHTML = html;
+      const giocatoreInfo = document.createElement('div');
+      giocatoreInfo.className = 'giocatore-info';
+
+      const strong = document.createElement('strong');
+      strong.textContent = `${numeroText} - ${g.nome} ${g.cognome}`;
+      giocatoreInfo.appendChild(strong);
+      giocatoreInfo.appendChild(document.createElement('br'));
+
+      const small = document.createElement('small');
+      small.textContent = `Ruolo: ${g.ruolo || 'N/A'} | ${idoneitaIcon} ${idoneitaText}`;
+      giocatoreInfo.appendChild(small);
+
+      giocatoreCard.appendChild(giocatoreInfo);
+
+      const giocatoreActions = document.createElement('div');
+      giocatoreActions.className = 'giocatore-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn-edit';
+      editBtn.textContent = '✏️';
+      editBtn.onclick = () => editGiocatore(g.id);
+      giocatoreActions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-delete';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.onclick = () => deleteGiocatore(g.id);
+      giocatoreActions.appendChild(deleteBtn);
+
+      giocatoreCard.appendChild(giocatoreActions);
+      giocatoriList.appendChild(giocatoreCard);
+    });
+
+    content.appendChild(giocatoriList);
   });
 }
 
