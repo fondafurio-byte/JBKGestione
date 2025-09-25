@@ -1,13 +1,13 @@
-const CACHE_NAME = 'jbkgestione-cache-v3';
+const CACHE_NAME = 'jbkgestione-cache-v4';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/static/style.css?v=2',
+  '/static/style.css?v=3',
   '/static/icon-192.png',
   '/static/icon-512.png',
-  '/static/supabase.min.js?v=2',
-  '/app.js?v=2'
+  '/static/supabase.min.js?v=3',
+  '/app.js?v=3'
 ];
 
 self.addEventListener('install', event => {

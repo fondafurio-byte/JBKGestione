@@ -238,7 +238,20 @@ async function loadDashboard() {
 // Service Worker per PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js');
+    navigator.serviceWorker.register('service-worker.js').then(registration => {
+      registration.update(); // Forza aggiornamento
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Nuovo SW disponibile, ricarica pagina
+              window.location.reload();
+            }
+          });
+        }
+      });
+    });
   });
 }
 console.log('app.js fully loaded');
