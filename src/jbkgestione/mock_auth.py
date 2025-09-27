@@ -49,5 +49,4 @@ class MockAuthService:
             }
         return None
 
-# Istanza mock per test
-mock_auth_service = MockAuthService()
+''

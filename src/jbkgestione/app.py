@@ -8,21 +8,17 @@ from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER, LEFT, RIGHT
 from datetime import datetime, timedelta
 import calendar
-import sqlite3
 import json
 import os
 
 # Import per autenticazione Supabase
-from .supabase_auth import auth_service
-from .supabase_db import db_manager
-from .login_window import LoginWindow
-
-# Import per compatibilità (da sostituire gradualmente)
-from .models import DatabaseManager, Giocatore, Partita, Allenamento
-from .services import GiocatoriService, PartiteService, AllenamentiService, StatisticheService, ConvocatiService, StatisticheIndividualiService
+from jbkgestione.supabase_auth import auth_service
+from jbkgestione.supabase_db import db_manager
+from jbkgestione.login_window import LoginWindow
 
 
 class JBKGestione(toga.App):
+    # RIMOSSO autofit_main_window: ora la finestra avrà una dimensione fissa dopo il login
     """Applicazione principale per la gestione della squadra di basket"""
     
     def __init__(self):
@@ -34,6 +30,9 @@ class JBKGestione(toga.App):
             description="Applicazione per la gestione della squadra di basket JBK",
             version="1.0.0"
         )
+        # Stato categoria attiva (inizializzato dopo login)
+        self.categoria_attiva = None
+        self.categorie_utente = []
     
     def setup_responsive_config(self):
         """Configura le dimensioni responsive per diverse piattaforme"""
@@ -52,6 +51,45 @@ class JBKGestione(toga.App):
             'header_height': 65,     # Ridotto per eleganza
             'content_padding': 10    # Ridotto per compattezza
         }
+        
+        # Rileva il tema di sistema (dark/light mode) su macOS
+        try:
+            import subprocess
+            import platform
+            if platform.system() == 'Darwin':  # macOS
+                result = subprocess.run(
+                    ['defaults', 'read', '-g', 'AppleInterfaceStyle'],
+                    capture_output=True, text=True, timeout=5
+                )
+                is_dark_mode = result.returncode == 0 and result.stdout.strip() == 'Dark'
+            else:
+                is_dark_mode = False  # Default a light mode per altri sistemi
+        except:
+            is_dark_mode = False  # Fallback a light mode se rilevamento fallisce
+        
+        # Imposta colori basati sul tema di sistema
+        if is_dark_mode:
+            self.config.update({
+                'text_color': '#ffffff',           # Testo bianco per dark mode
+                'background_color': '#1e1e1e',     # Sfondo scuro
+                'secondary_bg': '#2d2d2d',         # Sfondo secondario
+                'accent_color': '#007acc',         # Blu accent per dark mode
+                'border_color': '#404040',         # Bordi scuri
+                'success_color': '#4ade80',        # Verde chiaro per dark mode
+                'warning_color': '#fbbf24',        # Giallo chiaro per dark mode
+                'error_color': '#f87171'           # Rosso chiaro per dark mode
+            })
+        else:
+            self.config.update({
+                'text_color': '#000000',           # Testo nero per light mode
+                'background_color': '#ffffff',     # Sfondo bianco
+                'secondary_bg': '#f5f5f5',         # Sfondo secondario chiaro
+                'accent_color': '#2196f3',         # Blu standard per light mode
+                'border_color': '#e0e0e0',         # Bordi chiari
+                'success_color': '#4caf50',        # Verde standard
+                'warning_color': '#ff9800',        # Arancione standard
+                'error_color': '#f44336'           # Rosso standard
+            })
         
         # Rileva se siamo su mobile/iOS (approssimazione basata su dimensioni)
         try:
@@ -91,7 +129,7 @@ class JBKGestione(toga.App):
             )
         )
     
-    def create_responsive_label(self, text, font_size_type='normal', color="#000000", **style_kwargs):
+    def create_responsive_label(self, text, font_size_type='normal', color=None, **style_kwargs):
         """Crea una label con dimensioni responsive"""
         font_sizes = {
             'title': self.config['title_font_size'],
@@ -99,6 +137,10 @@ class JBKGestione(toga.App):
             'normal': self.config['label_font_size'],
             'small': self.config['label_font_size'] - 2
         }
+        
+        # Usa il colore dal config se non specificato
+        if color is None:
+            color = self.config['text_color']
         
         default_style = Pack(
             font_size=font_sizes.get(font_size_type, self.config['label_font_size']),
@@ -137,7 +179,14 @@ class JBKGestione(toga.App):
         login_content = self.login_window.create_login_window()
         
         # Imposta il contenuto della finestra principale
-        self.main_window = toga.MainWindow(title="JBK Gestione - Accesso")
+        try:
+            win = self.main_window
+        except Exception:
+            win = toga.MainWindow(title="JBK Gestione - Accesso", size=(500, 600))
+            # self.add_window(win)  # RIMOSSO per compatibilità Toga
+            if hasattr(self, 'windows'):
+                self.windows.add(win)
+            self.main_window = win
         self.main_window.content = login_content
         self.main_window.show()
     
@@ -158,15 +207,8 @@ class JBKGestione(toga.App):
         # Inizializza il database e i servizi
         print("🗄️ Inizializzazione servizi database...")
         
-        # Per ora manteniamo compatibilità con il vecchio sistema
-        # TODO: Migrare completamente ai servizi Supabase
-        self.db_manager = DatabaseManager()
-        self.giocatori_service = GiocatoriService(self.db_manager)
-        self.partite_service = PartiteService(self.db_manager)
-        self.convocati_service = ConvocatiService(self.db_manager)
-        self.allenamenti_service = AllenamentiService(self.db_manager)
-        self.statistiche_service = StatisticheService(self.db_manager)
-        self.statistiche_individuali_service = StatisticheIndividualiService(self.db_manager)
+    # Usa solo Supabase per la gestione dati
+    # Tutte le operazioni dati devono ora passare da supabase_db (db_manager)
         
         # Riferimento ai servizi Supabase
         self.supabase_db = db_manager
@@ -178,7 +220,7 @@ class JBKGestione(toga.App):
         self.setup_responsive_config()
         
         # Container principale dell'app con layout adattivo
-        self.main_container = toga.Box(style=Pack(direction=ROW))
+        self.main_container = toga.Box(style=Pack(direction=ROW, align_items=CENTER))
         
         # Menu di navigazione laterale con dimensioni responsive
         self.sidebar = toga.Box(
@@ -209,7 +251,6 @@ class JBKGestione(toga.App):
                 padding=(self.config['padding_small'], 0)
             )
         )
-        
         subtitle_label = toga.Label(
             "GESTIONE SQUADRA",
             style=Pack(
@@ -219,7 +260,6 @@ class JBKGestione(toga.App):
                 padding=(0, self.config['padding_small'])
             )
         )
-        
         header_sidebar.add(logo_label)
         header_sidebar.add(subtitle_label)
         self.sidebar.add(header_sidebar)
@@ -233,7 +273,7 @@ class JBKGestione(toga.App):
                 padding=self.config['padding_medium'],
                 width=self.config['sidebar_width'] - 30,
                 height=self.config['button_height'],
-                background_color="#34495e",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size'],
                 text_align=LEFT
@@ -336,7 +376,8 @@ class JBKGestione(toga.App):
                 direction=COLUMN,
                 flex=1,
                 background_color="#ecf0f1",
-                padding=0
+                padding=0,
+                align_items=CENTER
             )
         )
         
@@ -347,7 +388,8 @@ class JBKGestione(toga.App):
             style=Pack(
                 direction=COLUMN,
                 padding=self.config['content_padding'],
-                background_color="#ffffff"
+                background_color="#ffffff",
+                align_items=CENTER
             )
         )
         
@@ -369,7 +411,7 @@ class JBKGestione(toga.App):
         
         # Container principale che include top bar e contenuto (senza sidebar inizialmente)
         self.app_container = toga.Box(
-            style=Pack(direction=COLUMN)
+            style=Pack(direction=COLUMN, background_color="#d32f2f", align_items=CENTER)
         )
         self.app_container.add(self.top_bar)
         self.app_container.add(self.content_area)
@@ -380,14 +422,55 @@ class JBKGestione(toga.App):
         # Variabile per tracciare lo stato della sidebar (inizialmente nascosta)
         self.sidebar_visible = False
         
-        # Crea la finestra principale
-        self.main_window = toga.MainWindow(title=self.formal_name, size=(1200, 800))
-        self.main_window.content = self.app_container
+        # Invece di creare una nuova finestra, riutilizza quella esistente cambiando il contenuto
+        try:
+            win = self.main_window
+        except Exception:
+            print("🆕 Creazione nuova finestra per l'app principale")
+            win = toga.MainWindow(title=self.formal_name, size=(1200, 800))
+            # self.add_window(win)  # RIMOSSO per compatibilità Toga
+            if hasattr(self, 'windows'):
+                self.windows.add(win)
+            self.main_window = win
+        print("🔄 Riutilizzo finestra esistente per l'app principale")
+        self.main_window.title = self.formal_name  # Cambia il titolo
+        self.main_window.size = (1200, 800)
+        self.main_window.content = self.app_container  # Cambia il contenuto
         self.main_window.show()
         
         # Mostra la home di default
         self.mostra_home(None)
     
+    def set_categoria_attiva(self, nuova_categoria):
+        """Cambia la categoria attiva e aggiorna la UI"""
+        self.categoria_attiva = nuova_categoria
+        # Forza refresh di tutte le viste principali
+        if hasattr(self, 'pagina_corrente'):
+            if self.pagina_corrente == "home":
+                self.mostra_home(None)
+            elif self.pagina_corrente == "giocatori":
+                self.mostra_giocatori(None)
+            elif self.pagina_corrente == "partite":
+                self.mostra_partite(None)
+            elif self.pagina_corrente == "allenamenti":
+                self.mostra_allenamenti(None)
+            elif self.pagina_corrente == "statistiche":
+                self.mostra_statistiche(None)
+
+    def aggiorna_categorie_utente(self):
+        """Aggiorna le categorie utente e imposta la categoria attiva di default"""
+        from jbkgestione.supabase_auth import auth_service
+        categorie = auth_service.current_user_categories
+        if isinstance(categorie, str):
+            try:
+                categorie = json.loads(categorie)
+            except Exception:
+                categorie = [categorie]
+        self.categorie_utente = categorie if categorie else []
+        # Imposta la categoria attiva se non già impostata
+        if not self.categoria_attiva or self.categoria_attiva not in self.categorie_utente:
+            self.categoria_attiva = self.categorie_utente[0] if self.categorie_utente else None
+
     def create_user_section(self):
         """Crea la sezione informazioni utente nel menu"""
         user_info = auth_service.get_current_user_info()
@@ -395,14 +478,14 @@ class JBKGestione(toga.App):
         user_container = toga.Box(style=Pack(
             direction=COLUMN,
             padding=10,
-            background_color="#34495e"
+            background_color="#d32f2f"
         ))
         
         # Separatore
         separator = toga.Box(style=Pack(
             height=1,
-            background_color="#7f8c8d",
-            padding_bottom=10
+            background_color="#d32f2f",
+            margin_bottom=10
         ))
         user_container.add(separator)
         
@@ -413,7 +496,7 @@ class JBKGestione(toga.App):
                 font_size=10,
                 color="#ecf0f1",
                 text_align=CENTER,
-                padding_bottom=5
+                margin_bottom=5
             )
         )
         user_container.add(user_name)
@@ -429,7 +512,7 @@ class JBKGestione(toga.App):
                 color=role_color,
                 text_align=CENTER,
                 font_weight="bold",
-                padding_bottom=10
+                margin_bottom=10
             )
         )
         user_container.add(user_role)
@@ -457,7 +540,7 @@ class JBKGestione(toga.App):
                     font_size=8,
                     color="#f39c12",
                     text_align=CENTER,
-                    padding_top=5,
+                    margin_top=5,
                     font_style="italic"
                 )
             )
@@ -469,7 +552,7 @@ class JBKGestione(toga.App):
                     font_size=8,
                     color="#95a5a6",
                     text_align=CENTER,
-                    padding_top=5,
+                    margin_top=5,
                     font_style="italic"
                 )
             )
@@ -495,7 +578,7 @@ class JBKGestione(toga.App):
             style=Pack(
                 direction=ROW,
                 padding=10,
-                background_color="#2c3e50",
+                background_color="#d32f2f",
                 height=50
             )
         )
@@ -507,7 +590,7 @@ class JBKGestione(toga.App):
             style=Pack(
                 width=50,
                 height=30,
-                background_color="#34495e",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=16,
                 padding=5
@@ -577,7 +660,7 @@ class JBKGestione(toga.App):
         
         # Crea un nuovo container
         self.app_container = toga.Box(
-            style=Pack(direction=COLUMN)
+            style=Pack(direction=COLUMN, background_color="#d32f2f", align_items=CENTER)
         )
         
         # Aggiungi la top bar
@@ -595,7 +678,7 @@ class JBKGestione(toga.App):
         
         # Container principale per l'overlay
         overlay_main = toga.Box(
-            style=Pack(direction=COLUMN)
+            style=Pack(direction=COLUMN, background_color="#d32f2f", align_items=CENTER)
         )
         
         # Aggiungi sempre la top bar
@@ -694,7 +777,45 @@ class JBKGestione(toga.App):
         
         header_sidebar.add(logo_label)
         header_sidebar.add(subtitle_label)
+
+        # --- CATEGORIA ATTIVA: LABEL E/O DROPDOWN ---
+        self.aggiorna_categorie_utente()
+        from jbkgestione.supabase_auth import auth_service
+        ruolo = getattr(auth_service, 'current_user_role', None)
+        box_categoria = toga.Box(style=Pack(direction=COLUMN, padding_top=5, padding_bottom=5, align_items=CENTER))
+        if self.categorie_utente:
+            if ruolo == "coach" and len(self.categorie_utente) > 1:
+                # Dropdown per coach multi-categoria
+                box_categoria.add(toga.Label("Categoria attiva:", style=Pack(font_size=10, color="#fff", text_align=CENTER)))
+                dropdown = toga.Selection(items=self.categorie_utente, style=Pack(width=self.config['sidebar_width']-40, font_size=11))
+                dropdown.value = self.categoria_attiva
+                def on_categoria_change(widget):
+                    self.set_categoria_attiva(widget.value)
+                dropdown.on_change = on_categoria_change
+                box_categoria.add(dropdown)
+            else:
+                # Solo label per tutti gli altri
+                box_categoria.add(toga.Label(f"Categoria: {self.categoria_attiva}", style=Pack(font_size=11, color="#fff", text_align=CENTER, padding_bottom=2)))
+        else:
+            box_categoria.add(toga.Label("Nessuna categoria", style=Pack(font_size=10, color="#fff", text_align=CENTER)))
+        header_sidebar.add(box_categoria)
         container.add(header_sidebar)
+
+        # --- TASTO LOGOUT ---
+        btn_logout = toga.Button(
+            "🚪 Logout",
+            on_press=self.handle_logout,
+            style=Pack(
+                width=self.config['sidebar_width'] - 40,
+                padding=8,
+                background_color="#e74c3c",
+                color="#fff",
+                font_size=11,
+                margin_top=10,
+                margin_bottom=10
+            )
+        )
+        container.add(btn_logout)
         
         # Menu items con sfondo trasparente per mantenere il rosso
         menu_items = toga.Box(
@@ -713,7 +834,7 @@ class JBKGestione(toga.App):
                 padding=self.config['padding_medium'],
                 width=self.config['sidebar_width'] - 30,
                 height=self.config['button_height'],
-                background_color="#5d6d7e" if self.pagina_corrente == "home" else "#34495e",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size'],
                 text_align=LEFT
@@ -839,7 +960,7 @@ class JBKGestione(toga.App):
         """Aggiorna lo stile del menu per evidenziare la pagina attiva"""
         # Reset tutti i pulsanti allo stile normale
         buttons = [
-            (self.btn_home, "#34495e"),
+            (self.btn_home, "#d32f2f"),
             (self.btn_giocatori, "#2e7d32"),
             (self.btn_partite, "#ffc107"),
             (self.btn_allenamenti, "#f57c00"),
@@ -856,7 +977,7 @@ class JBKGestione(toga.App):
         
         # Evidenzia il pulsante attivo
         if pagina == "home":
-            self.btn_home.style.background_color = "#5d6d7e"
+            self.btn_home.style.background_color = "#ff6666"
         elif pagina == "giocatori":
             self.btn_giocatori.style.background_color = "#4caf50"
         elif pagina == "partite":
@@ -896,22 +1017,31 @@ class JBKGestione(toga.App):
         # Container per sezioni della dashboard
         sections_container = toga.Box(style=Pack(direction=COLUMN, padding=10))
         
-        # SEZIONE 1: Impegni Settimanali (parte superiore)
+        # PRIMA RIGA: Container orizzontale per Impegni Settimanali e Compleanni del Mese
+        row_container_prima_riga = toga.Box(style=Pack(direction=ROW, padding=5))
+        
+        # SEZIONE 1: Impegni Settimanali (colonna sinistra)
         impegni_section = self.crea_sezione_impegni_settimanali()
-        sections_container.add(impegni_section)
+        row_container_prima_riga.add(impegni_section)
         
-        # SEZIONE 2: Container orizzontale per Valutazione e Statistiche
-        row_container = toga.Box(style=Pack(direction=ROW, padding=5))
+        # SEZIONE 2: Compleanni del Mese (colonna destra)
+        compleanni_section = self.crea_sezione_compleanni()
+        row_container_prima_riga.add(compleanni_section)
         
-        # Valutazione Media Squadra (colonna sinistra)
-        valutazione_section = self.crea_sezione_valutazione_squadra()
-        row_container.add(valutazione_section)
+        sections_container.add(row_container_prima_riga)
         
-        # Statistiche Totali Squadra (colonna destra)
+        # SECONDA RIGA: Container orizzontale per Statistiche e Valutazione
+        row_container_seconda_riga = toga.Box(style=Pack(direction=ROW, padding=5))
+        
+        # Statistiche Totali Squadra (colonna sinistra)
         statistiche_section = self.crea_sezione_statistiche_squadra()
-        row_container.add(statistiche_section)
+        row_container_seconda_riga.add(statistiche_section)
         
-        sections_container.add(row_container)
+        # Valutazione Media Squadra (colonna destra)
+        valutazione_section = self.crea_sezione_valutazione_squadra()
+        row_container_seconda_riga.add(valutazione_section)
+        
+        sections_container.add(row_container_seconda_riga)
         
         dashboard_container.add(sections_container)
         self.dynamic_content.add(dashboard_container)
@@ -922,6 +1052,7 @@ class JBKGestione(toga.App):
         section = toga.Box(style=Pack(
             direction=COLUMN,
             padding=10,
+            flex=1,  # Occupa metà dello spazio orizzontale
             background_color="#ffffff"
         ))
         
@@ -943,38 +1074,85 @@ class JBKGestione(toga.App):
         impegni_container = toga.Box(style=Pack(direction=COLUMN, padding=10))
         
         try:
-            # Prossimi allenamenti (prossimi 7 giorni)
-            from datetime import datetime, timedelta
-            oggi = datetime.now()
-            settimana_prossima = oggi + timedelta(days=7)
-            
-            allenamenti_service = AllenamentiService(self.db_manager)
-            partite_service = PartiteService(self.db_manager)
-            
-            tutti_allenamenti = allenamenti_service.ottieni_tutti_allenamenti()
-            tutte_partite = partite_service.ottieni_tutte_partite()
-            
-            # Filtra allenamenti nella prossima settimana
-            impegni_settimana = []
-            
-            for allenamento in tutti_allenamenti:
-                try:
-                    data_allenamento = datetime.strptime(allenamento['data'], '%Y-%m-%d')
-                    if oggi <= data_allenamento <= settimana_prossima:
-                        impegni_settimana.append({
-                            'tipo': '🏃 ALLENAMENTO',
-                            'data': allenamento['data'],
-                            'ora': allenamento.get('ora', ''),
-                            'luogo': allenamento.get('luogo', 'Palestra')
-                        })
-                except:
-                    pass
-            
-            # Filtra partite nella prossima settimana
-            for partita in tutte_partite:
-                try:
-                    data_partita = datetime.strptime(partita['data'], '%Y-%m-%d')
-                    if oggi <= data_partita <= settimana_prossima:
+            # Verifica autenticazione prima di caricare gli impegni
+            from jbkgestione.supabase_auth import auth_service
+            if not auth_service.is_authenticated():
+                auth_message = toga.Label(
+                    "🔐 AUTENTICAZIONE RICHIESTA\n\n"
+                    "Effettua il login per visualizzare\n"
+                    "gli impegni settimanali",
+                    style=Pack(
+                        font_size=12,
+                        color="#e74c3c",
+                        text_align=CENTER,
+                        padding=20,
+                        font_weight="bold"
+                    )
+                )
+                impegni_container.add(auth_message)
+            else:
+                # Prossimi allenamenti (prossimi 7 giorni)
+                from datetime import datetime, timedelta
+                oggi = datetime.now()
+                settimana_prossima = oggi + timedelta(days=7)
+                
+                # RIMOSSO: AllenamentiService e PartiteService (solo Supabase)
+                
+                from jbkgestione.supabase_auth import auth_service
+                categorie_utente = auth_service.current_user_categories
+                if isinstance(categorie_utente, str):
+                    try:
+                        categorie_utente = json.loads(categorie_utente)
+                    except Exception:
+                        categorie_utente = [categorie_utente]
+                tutti_allenamenti = self.supabase_db.ottieni_allenamenti_per_categorie(categorie_utente)
+                tutte_partite = self.supabase_db.ottieni_tutte_partite()
+                
+                # Filtra allenamenti nella prossima settimana
+                impegni_settimana = []
+                
+                for allenamento in tutti_allenamenti:
+                    try:
+                        data_allenamento = datetime.strptime(allenamento['data'], '%Y-%m-%d')
+                        if oggi <= data_allenamento <= settimana_prossima:
+                            impegni_settimana.append({
+                                'tipo': '🏃 ALLENAMENTO',
+                                'data': allenamento['data'],
+                                'ora': allenamento.get('ora', ''),
+                                'luogo': allenamento.get('luogo', 'Palestra')
+                            })
+                    except:
+                        pass
+                
+                # Filtra partite nella prossima settimana
+                for partita in tutte_partite:
+                    try:
+                        data_partita = datetime.strptime(partita['data'], '%Y-%m-%d')
+                        if oggi <= data_partita <= settimana_prossima:
+                            impegni_settimana.append({
+                                'tipo': '⚽ PARTITA',
+                                'data': partita['data'],
+                                'ora': partita.get('ora', ''),
+                                'luogo': partita.get('luogo', ''),
+                                'avversario': partita.get('avversario', 'TBD')
+                            })
+                    except:
+                        pass
+                
+                # Se non ci sono partite nella prossima settimana, mostra le prossime 3 partite future
+                if not any(imp['tipo'] == '⚽ PARTITA' for imp in impegni_settimana):
+                    partite_future = []
+                    for partita in tutte_partite:
+                        try:
+                            data_partita = datetime.strptime(partita['data'], '%Y-%m-%d')
+                            if data_partita >= oggi:
+                                partite_future.append((data_partita, partita))
+                        except:
+                            pass
+                    
+                    # Ordina per data e prendi le prime 3
+                    partite_future.sort(key=lambda x: x[0])
+                    for data_partita, partita in partite_future[:2]:  # Mostra max 2 partite future
                         impegni_settimana.append({
                             'tipo': '⚽ PARTITA',
                             'data': partita['data'],
@@ -982,66 +1160,95 @@ class JBKGestione(toga.App):
                             'luogo': partita.get('luogo', ''),
                             'avversario': partita.get('avversario', 'TBD')
                         })
-                except:
-                    pass
-            
-            # Se non ci sono partite nella prossima settimana, mostra le prossime 3 partite future
-            if not any(imp['tipo'] == '⚽ PARTITA' for imp in impegni_settimana):
-                partite_future = []
-                for partita in tutte_partite:
-                    try:
-                        data_partita = datetime.strptime(partita['data'], '%Y-%m-%d')
-                        if data_partita >= oggi:
-                            partite_future.append((data_partita, partita))
-                    except:
-                        pass
                 
-                # Ordina per data e prendi le prime 3
-                partite_future.sort(key=lambda x: x[0])
-                for data_partita, partita in partite_future[:2]:  # Mostra max 2 partite future
-                    impegni_settimana.append({
-                        'tipo': '⚽ PARTITA',
-                        'data': partita['data'],
-                        'ora': partita.get('ora', ''),
-                        'luogo': partita.get('luogo', ''),
-                        'avversario': partita.get('avversario', 'TBD')
-                    })
-            
-            # Ordina per data
-            impegni_settimana.sort(key=lambda x: x['data'])
-            
-            if impegni_settimana:
-                for impegno in impegni_settimana[:5]:  # Mostra max 5 impegni
-                    impegno_text = f"{impegno['tipo']} - {impegno['data']}"
-                    if impegno.get('ora'):
-                        impegno_text += f" ore {impegno['ora']}"
-                    if impegno.get('luogo'):
-                        impegno_text += f" @ {impegno['luogo']}"
-                    if impegno.get('avversario'):
-                        impegno_text += f" vs {impegno['avversario']}"
-                    
-                    impegno_label = toga.Label(
-                        impegno_text,
+                # Ordina per data
+                impegni_settimana.sort(key=lambda x: x['data'])
+                
+                if impegni_settimana:
+                    for impegno in impegni_settimana[:5]:  # Mostra max 5 impegni
+                        # Container per ogni impegno (formato compatto come le partite)
+                        impegno_box = toga.Box(style=Pack(
+                            direction=ROW,
+                            padding=self.config['padding_medium'],
+                            height=self.config['row_height'],
+                            background_color="#f8f9fa"
+                        ))
+                        
+                        # Box per informazioni impegno (due righe)
+                        info_box = toga.Box(style=Pack(direction=COLUMN, flex=1, padding=self.config['padding_small']))
+                        
+                        # Prima riga: luogo/avversario (senza tipo)
+                        prima_riga_text = ""
+                        if impegno.get('avversario'):
+                            prima_riga_text = f"vs {impegno['avversario']}"
+                        elif impegno.get('luogo'):
+                            prima_riga_text = f"@ {impegno['luogo']}"
+                        
+                        prima_riga_label = toga.Label(
+                            prima_riga_text,
+                            style=Pack(
+                                font_size=self.config['label_font_size'],
+                                font_weight="bold",
+                                color="#2c3e50"
+                            )
+                        )
+                        
+                        # Seconda riga: data e ora
+                        # Converte la data dal formato YYYY-MM-DD a GG/MM/AAAA per la visualizzazione
+                        try:
+                            from datetime import datetime
+                            data_obj = datetime.strptime(impegno['data'], '%Y-%m-%d')
+                            data_formattata = data_obj.strftime('%d/%m/%Y')
+                        except:
+                            data_formattata = impegno['data']  # Fallback se il parsing fallisce
+                        
+                        seconda_riga_text = f"📅 {data_formattata}"
+                        if impegno.get('ora'):
+                            seconda_riga_text += f" ⏰ {impegno['ora']}"
+                        
+                        seconda_riga_label = toga.Label(
+                            seconda_riga_text,
+                            style=Pack(
+                                font_size=self.config['label_font_size'] - 3,
+                                color="#666666"
+                            )
+                        )
+                        
+                        info_box.add(prima_riga_label)
+                        info_box.add(seconda_riga_label)
+                        
+                        # Badge tipo impegno
+                        tipo_colors = {
+                            '🏃 ALLENAMENTO': '#3498db',
+                            '⚽ PARTITA': '#e74c3c'
+                        }
+                        tipo_color = tipo_colors.get(impegno['tipo'], '#95a5a6')
+                        
+                        tipo_label = toga.Label(
+                            impegno['tipo'].split()[1],  # Solo "ALLENAMENTO" o "PARTITA"
+                            style=Pack(
+                                padding=self.config['padding_small'], 
+                                background_color=tipo_color, 
+                                color="#ffffff",
+                                font_size=self.config['label_font_size'] - 2
+                            )
+                        )
+                        
+                        impegno_box.add(info_box)
+                        impegno_box.add(tipo_label)
+                        impegni_container.add(impegno_box)
+                else:
+                    no_impegni = toga.Label(
+                        "Nessun impegno nei prossimi 7 giorni",
                         style=Pack(
                             font_size=12,
-                            color="#34495e",
-                            padding=3,
+                            color="#7f8c8d",
+                            padding=10,
+                            font_style="italic",
                             text_align=CENTER
                         )
                     )
-                    impegni_container.add(impegno_label)
-            else:
-                no_impegni = toga.Label(
-                    "Nessun impegno nei prossimi 7 giorni",
-                    style=Pack(
-                        font_size=12,
-                        color="#7f8c8d",
-                        padding=10,
-                        font_style="italic",
-                        text_align=CENTER
-                    )
-                )
-                impegni_container.add(no_impegni)
+                    impegni_container.add(no_impegni)
                 
         except Exception as e:
             error_label = toga.Label(
@@ -1064,6 +1271,7 @@ class JBKGestione(toga.App):
             direction=COLUMN,
             padding=10,
             flex=1,  # Prende metà dello spazio orizzontale
+            height=200,  # Altezza minima per garantire visibilità
             background_color="#ffffff"
         ))
         
@@ -1075,7 +1283,7 @@ class JBKGestione(toga.App):
                 font_weight="bold",
                 color="#2c3e50",
                 padding=8,
-                background_color="#e8f5e8"
+                background_color="#fff3e0"
             )
         )
         section.add(title)
@@ -1085,8 +1293,8 @@ class JBKGestione(toga.App):
         
         try:
             # Calcola valutazione media di tutti i giocatori
-            giocatori_service = GiocatoriService(self.db_manager)
-            tutti_giocatori = giocatori_service.ottieni_tutti_giocatori()
+            # RIMOSSO: GiocatoriService (solo Supabase)
+            tutti_giocatori = self.supabase_db.ottieni_tutti_giocatori()
             
             if tutti_giocatori:
                 valutazioni_giocatori = []
@@ -1109,7 +1317,6 @@ class JBKGestione(toga.App):
                             font_size=18,
                             font_weight="bold",
                             color="#27ae60" if valutazione_media >= 6 else "#e74c3c",
-                            text_align=CENTER,
                             padding=10
                         )
                     )
@@ -1121,7 +1328,6 @@ class JBKGestione(toga.App):
                         style=Pack(
                             font_size=12,
                             color="#7f8c8d",
-                            text_align=CENTER,
                             padding=5
                         )
                     )
@@ -1129,13 +1335,13 @@ class JBKGestione(toga.App):
                 else:
                     no_val = toga.Label(
                         "Nessuna valutazione disponibile",
-                        style=Pack(font_size=12, color="#7f8c8d", padding=10)
+                        style=Pack(font_size=12, color="#7f8c8d", padding=10, text_align=CENTER)
                     )
                     valutazione_container.add(no_val)
             else:
                 no_giocatori = toga.Label(
                     "Nessun giocatore registrato",
-                    style=Pack(font_size=12, color="#7f8c8d", padding=10)
+                    style=Pack(font_size=12, color="#7f8c8d", padding=10, text_align=CENTER)
                 )
                 valutazione_container.add(no_giocatori)
                 
@@ -1155,6 +1361,7 @@ class JBKGestione(toga.App):
             direction=COLUMN,
             padding=10,
             flex=1,  # Prende metà dello spazio orizzontale
+            height=200,  # Altezza minima per garantire visibilità
             background_color="#ffffff"
         ))
         
@@ -1176,14 +1383,25 @@ class JBKGestione(toga.App):
         
         try:
             # Raccogli statistiche totali
-            giocatori_service = GiocatoriService(self.db_manager)
-            allenamenti_service = AllenamentiService(self.db_manager)
-            partite_service = PartiteService(self.db_manager)
+            # RIMOSSO: GiocatoriService, AllenamentiService, PartiteService (solo Supabase)
             
-            # Conteggi base
-            totale_giocatori = len(giocatori_service.ottieni_tutti_giocatori())
-            totale_allenamenti = len(allenamenti_service.ottieni_tutti_allenamenti())
-            totale_partite = len(partite_service.ottieni_tutte_partite())
+            # Filtra per categorie utente
+            categorie_utente = json.loads(auth_service.current_user_categories) if hasattr(auth_service, 'current_user_categories') else []
+            if hasattr(self.supabase_db, 'ottieni_giocatori_per_categorie'):
+                tutti_giocatori = self.supabase_db.ottieni_giocatori_per_categorie(categorie_utente)
+            else:
+                tutti_giocatori = self.supabase_db.ottieni_tutti_giocatori()
+            if hasattr(self.supabase_db, 'ottieni_allenamenti_per_categorie'):
+                tutti_allenamenti = self.supabase_db.ottieni_allenamenti_per_categorie(categorie_utente)
+            else:
+                tutti_allenamenti = self.supabase_db.ottieni_tutti_allenamenti()
+            if hasattr(self.supabase_db, 'ottieni_partite_per_categorie'):
+                tutte_partite = self.supabase_db.ottieni_partite_per_categorie(categorie_utente)
+            else:
+                tutte_partite = self.supabase_db.ottieni_tutte_partite()
+            totale_giocatori = len(tutti_giocatori)
+            totale_allenamenti = len(tutti_allenamenti)
+            totale_partite = len(tutte_partite)
             
             # Statistiche aggregate
             stats_text = f"""📈 RIEPILOGO GENERALE:
@@ -1199,7 +1417,7 @@ class JBKGestione(toga.App):
             assenze_totali = 0
             convocazioni_totali = 0
             
-            tutti_giocatori = giocatori_service.ottieni_tutti_giocatori()
+            tutti_giocatori = self.supabase_db.ottieni_tutti_giocatori()
             for giocatore in tutti_giocatori:
                 statistiche = self.calcola_statistiche_giocatore(giocatore['id'])
                 presenze_totali += statistiche['presenze']
@@ -1233,7 +1451,131 @@ class JBKGestione(toga.App):
         
         section.add(stats_container)
         return section
-    
+
+    def crea_sezione_compleanni(self):
+        """Crea la sezione dei compleanni del mese corrente"""
+        section = toga.Box(style=Pack(
+            direction=COLUMN,
+            padding=10,
+            flex=1,  # Occupa metà dello spazio orizzontale
+            background_color="#ffffff"
+        ))
+
+        # Titolo sezione
+        title = toga.Label(
+            "🎂 COMPLEANNI DEL MESE",
+            style=Pack(
+                font_size=16,
+                font_weight="bold",
+                color="#2c3e50",
+                padding=8,
+                background_color="#ecf0f1",
+                text_align=CENTER
+            )
+        )
+        section.add(title)
+
+        # Container per compleanni
+        compleanni_container = toga.Box(style=Pack(direction=COLUMN, padding=10))
+
+        try:
+            # Ottieni tutti i giocatori attivi
+            tutti_giocatori = self.supabase_db.ottieni_tutti_giocatori()
+
+            # Filtra giocatori con data di nascita e compleanni nel mese corrente
+            from datetime import datetime
+            mese_corrente = datetime.now().month
+            compleanni_mese = []
+
+            for giocatore in tutti_giocatori:
+                if giocatore.get('data_nascita'):
+                    try:
+                        # Prova prima formato ISO YYYY-MM-DD
+                        data_nascita = datetime.strptime(giocatore['data_nascita'], '%Y-%m-%d')
+                        if data_nascita.month == mese_corrente:
+                            # Calcola età
+                            oggi = datetime.now()
+                            eta = oggi.year - data_nascita.year
+                            if (oggi.month, oggi.day) < (data_nascita.month, data_nascita.day):
+                                eta -= 1
+
+                            compleanni_mese.append({
+                                'nome': giocatore['nome'],
+                                'cognome': giocatore['cognome'],
+                                'data_nascita': data_nascita,
+                                'eta': eta,
+                                'numero_maglia': giocatore.get('numero_maglia')
+                            })
+                    except ValueError:
+                        # Se fallisce, prova formato italiano GG/MM/AAAA
+                        try:
+                            data_nascita = datetime.strptime(giocatore['data_nascita'], '%d/%m/%Y')
+                            if data_nascita.month == mese_corrente:
+                                # Calcola età
+                                oggi = datetime.now()
+                                eta = oggi.year - data_nascita.year
+                                if (oggi.month, oggi.day) < (data_nascita.month, data_nascita.day):
+                                    eta -= 1
+
+                                compleanni_mese.append({
+                                    'nome': giocatore['nome'],
+                                    'cognome': giocatore['cognome'],
+                                    'data_nascita': data_nascita,
+                                    'eta': eta,
+                                    'numero_maglia': giocatore.get('numero_maglia')
+                                })
+                        except ValueError:
+                            # Se entrambi i formati falliscono, salta questo giocatore
+                            continue
+
+            # Ordina per giorno del mese
+            compleanni_mese.sort(key=lambda x: x['data_nascita'].day)
+
+            if compleanni_mese:
+                for compleanno in compleanni_mese:
+                    numero_text = f"#{compleanno['numero_maglia']}" if compleanno['numero_maglia'] else "N/A"
+                    data_text = compleanno['data_nascita'].strftime('%d/%m')
+
+                    compleanno_text = f"{numero_text} - {compleanno['nome']} {compleanno['cognome']} - {data_text} ({compleanno['eta']} anni)"
+
+                    compleanno_label = toga.Label(
+                        compleanno_text,
+                        style=Pack(
+                            font_size=12,
+                            color="#2c3e50",
+                            padding=3,
+                            text_align=CENTER
+                        )
+                    )
+                    compleanni_container.add(compleanno_label)
+            else:
+                no_compleanni = toga.Label(
+                    "Nessun compleanno questo mese",
+                    style=Pack(
+                        font_size=12,
+                        color="#7f8c8d",
+                        padding=10,
+                        font_style="italic",
+                        text_align=CENTER
+                    )
+                )
+                compleanni_container.add(no_compleanni)
+
+        except Exception as e:
+            error_label = toga.Label(
+                f"Errore caricamento compleanni: {str(e)[:50]}...",
+                style=Pack(
+                    font_size=10,
+                    color="#e74c3c",
+                    padding=5,
+                    text_align=CENTER
+                )
+            )
+            compleanni_container.add(error_label)
+
+        section.add(compleanni_container)
+        return section
+
     def mostra_giocatori(self, widget):
         """Mostra la pagina gestione giocatori"""
         print("👥 DEBUG NAV: Inizio caricamento pagina GIOCATORI")
@@ -1250,7 +1592,7 @@ class JBKGestione(toga.App):
     
     def crea_interfaccia_giocatori(self):
         """Crea l'interfaccia per la gestione giocatori"""
-        container = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
+        container = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1, align_items=CENTER))
         
         # Pulsanti azioni con dimensioni responsive
         actions_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium']))
@@ -1278,12 +1620,38 @@ class JBKGestione(toga.App):
                 flex=1
             )
         )
+        btn_refresh = toga.Button(
+            "🔄 Aggiorna",
+            on_press=self.aggiorna_lista_giocatori,
+            style=Pack(
+                padding=self.config['padding_medium'], 
+                height=self.config['button_height'],
+                background_color="#ff9800", 
+                color="#ffffff",
+                font_size=self.config['button_font_size'],
+                flex=1
+            )
+        )
+        btn_tutti = toga.Button(
+            "📊 Tutti i Giocatori",
+            on_press=self.mostra_tutti_giocatori,
+            style=Pack(
+                padding=self.config['padding_medium'], 
+                height=self.config['button_height'],
+                background_color="#9c27b0", 
+                color="#ffffff",
+                font_size=self.config['button_font_size'],
+                flex=1
+            )
+        )
         actions_box.add(btn_aggiungi)
         actions_box.add(btn_lista)
+        actions_box.add(btn_refresh)
+        actions_box.add(btn_tutti)
         container.add(actions_box)
         
         # Area contenuto dinamica
-        self.giocatori_content = toga.Box(style=Pack(direction=COLUMN, padding=10))
+        self.giocatori_content = toga.Box(style=Pack(direction=COLUMN, padding=10, background_color="#ffffff"))
         
         # Container scroll per i giocatori
         self.giocatori_scroll = toga.ScrollContainer(
@@ -1300,22 +1668,132 @@ class JBKGestione(toga.App):
         
         return container
     
+    def mostra_tutti_giocatori(self, widget):
+        """Mostra tutti i giocatori inclusi quelli inattivi"""
+        print("📊 DEBUG TUTTI GIOCATORI: Richiesta visualizzazione tutti i giocatori")
+        self.giocatori_content.clear()
+        
+        # Ottieni tutti i giocatori (attivi e inattivi)
+        giocatori = self.supabase_db.ottieni_tutti_giocatori(include_inactive=True)
+        print(f"📊 DEBUG TUTTI GIOCATORI: Trovati {len(giocatori)} giocatori totali")
+        
+        if not giocatori:
+            self.giocatori_content.add(toga.Label(
+                "Nessun giocatore trovato nel database.",
+                style=Pack(padding=20, font_size=14, color="#ffffff")
+            ))
+            return
+        
+        # Conta attivi e inattivi
+        attivi = [g for g in giocatori if g.get("attivo") is True]
+        inattivi = [g for g in giocatori if g.get("attivo") is not True]
+        
+        # Header con conteggio
+        header_text = f"📊 GIOCATORI TOTALI: {len(attivi)} attivi, {len(inattivi)} inattivi"
+        header_label = toga.Label(
+            header_text,
+            style=Pack(padding=10, font_size=16, color="#ffffff", background_color="#d32f2f")
+        )
+        self.giocatori_content.add(header_label)
+        
+        # Crea tabella giocatori
+        for giocatore in giocatori:
+            # Determina colore sfondo basato su stato attivo
+            bg_color = "#ff4444" if giocatore.get("attivo") is True else "#666666"
+            status_icon = "✅" if giocatore.get("attivo") is True else "🚫"
+            
+            player_box = toga.Box(
+                style=Pack(
+                    direction=ROW,
+                    padding=self.config['padding_medium'],
+                    background_color=bg_color,
+                    height=self.config['row_height']
+                )
+            )
+            
+            numero_text = f"#{giocatore['numero_maglia']}" if giocatore['numero_maglia'] else "N/A"
+            
+            # Converte la data di nascita dal formato YYYY-MM-DD a GG/MM/AAAA per la visualizzazione
+            data_nascita_display = "N/A"
+            if giocatore.get('data_nascita'):
+                try:
+                    from datetime import datetime
+                    data_obj = datetime.strptime(giocatore['data_nascita'], '%Y-%m-%d')
+                    data_nascita_display = data_obj.strftime('%d/%m/%Y')
+                except:
+                    data_nascita_display = giocatore['data_nascita']  # Fallback se il parsing fallisce
+            
+            data_nascita_text = f"Data: {data_nascita_display}"
+            
+            info_text = f"{status_icon} {numero_text} - {giocatore['nome']} {giocatore['cognome']} - {data_nascita_text}"
+            
+            info_label = toga.Label(
+                info_text,
+                style=Pack(
+                    flex=1, 
+                    padding=self.config['padding_small'],
+                    font_size=self.config['label_font_size'],
+                    color="#ffffff"
+                )
+            )
+            
+            # Pulsanti diversi per attivi e inattivi
+            if giocatore.get("attivo") is True:
+                btn_modifica = toga.Button(
+                    "✏️",
+                    on_press=lambda w, id=giocatore['id']: self.apri_dialog_giocatore(None, id),
+                    style=Pack(padding=2, background_color="#2196f3", color="#ffffff", width=40)
+                )
+                btn_elimina = toga.Button(
+                    "🗑️",
+                    on_press=lambda w, id=giocatore['id']: self.elimina_giocatore(id),
+                    style=Pack(padding=2, background_color="#f44336", color="#ffffff", width=40)
+                )
+                player_box.add(info_label)
+                player_box.add(btn_modifica)
+                player_box.add(btn_elimina)
+            else:
+                # Per giocatori inattivi, solo pulsante elimina definitiva
+                btn_elimina_def = toga.Button(
+                    "🗑️ Elimina Def.",
+                    on_press=lambda w, id=giocatore['id']: self.elimina_giocatore_definitivamente(id),
+                    style=Pack(padding=2, background_color="#f44336", color="#ffffff", width=100)
+                )
+                player_box.add(info_label)
+                player_box.add(btn_elimina_def)
+            
+            self.giocatori_content.add(player_box)
+    
 
     def mostra_lista_giocatori(self, widget):
         """Mostra la lista dei giocatori"""
         self.aggiorna_lista_giocatori()
     
-    def aggiorna_lista_giocatori(self):
+    def aggiorna_lista_giocatori(self, widget=None):
         """Aggiorna la lista dei giocatori nell'interfaccia"""
+        print("🔄 DEBUG GIOCATORI: Inizio aggiornamento lista giocatori")
         self.giocatori_content.clear()
         
-        # Ottieni lista giocatori
-        giocatori = self.giocatori_service.get_all()
+        # Ottieni lista giocatori filtrata per categoria utente
+        import json
+        from jbkgestione.supabase_auth import auth_service
+        categorie_utente = json.loads(auth_service.current_user_categories) if hasattr(auth_service, 'current_user_categories') else []
+        if hasattr(self.supabase_db, 'ottieni_giocatori_per_categorie'):
+            giocatori = self.supabase_db.ottieni_giocatori_per_categorie(categorie_utente)
+        else:
+            giocatori = self.supabase_db.ottieni_tutti_giocatori()
+        print(f"🔄 DEBUG GIOCATORI: Recuperati {len(giocatori)} giocatori dal database")
+        
+        if giocatori:
+            print("🔄 DEBUG GIOCATORI: Lista giocatori:")
+            for i, g in enumerate(giocatori):
+                print(f"  {i+1}. ID: {g.get('id')}, Nome: {g.get('nome')} {g.get('cognome')}, Attivo: {g.get('attivo')}")
         
         if not giocatori:
+            print("🔄 DEBUG GIOCATORI: Nessun giocatore trovato")
             self.giocatori_content.add(toga.Label(
                 "Nessun giocatore registrato.",
-                style=Pack(padding=20, font_size=14, color="#666666")
+                style=Pack(padding=20, font_size=14, color="#ffffff")  # Bianco invece di grigio
             ))
             return
         
@@ -1325,13 +1803,24 @@ class JBKGestione(toga.App):
                 style=Pack(
                     direction=ROW,
                     padding=self.config['padding_medium'],
-                    background_color="#f5f5f5",
+                    background_color="#ff4444",  # Rosso per le card giocatori
                     height=self.config['row_height']  # Altezza fissa per righe più grandi
                 )
             )
             
             numero_text = f"#{giocatore['numero_maglia']}" if giocatore['numero_maglia'] else "N/A"
-            data_nascita_text = f"Data: {giocatore['data_nascita']}" if giocatore.get('data_nascita') else "Data: N/A"
+            
+            # Converte la data di nascita dal formato YYYY-MM-DD a GG/MM/AAAA per la visualizzazione
+            data_nascita_display = "N/A"
+            if giocatore.get('data_nascita'):
+                try:
+                    from datetime import datetime
+                    data_obj = datetime.strptime(giocatore['data_nascita'], '%Y-%m-%d')
+                    data_nascita_display = data_obj.strftime('%d/%m/%Y')
+                except:
+                    data_nascita_display = giocatore['data_nascita']  # Fallback se il parsing fallisce
+            
+            data_nascita_text = f"Data: {data_nascita_display}"
             
             # Determina stato idoneità con controllo scadenza
             stato_idoneita = self.get_stato_idoneita_giocatore(giocatore)
@@ -1352,7 +1841,8 @@ class JBKGestione(toga.App):
                 style=Pack(
                     flex=1, 
                     padding=self.config['padding_small'],
-                    font_size=self.config['label_font_size']
+                    font_size=self.config['label_font_size'],
+                    color="#ffffff"  # Testo bianco sulle card rosse
                 )
             )
             
@@ -1399,7 +1889,7 @@ class JBKGestione(toga.App):
     
     def controlla_idoneita_scadute(self):
         """Controlla e notifica idoneità scadute"""
-        giocatori = self.giocatori_service.get_all()
+        giocatori = self.supabase_db.ottieni_tutti_giocatori()
         scadute = []
         
         for giocatore in giocatori:
@@ -1415,7 +1905,7 @@ class JBKGestione(toga.App):
         # Se stiamo modificando, carica i dati esistenti
         giocatore_data = None
         if giocatore_id:
-            giocatore_data = self.giocatori_service.get_by_id(giocatore_id)
+            giocatore_data = self.supabase_db.ottieni_giocatore_by_id(giocatore_id)
         
         # Crea una nuova finestra dialog
         dialog = toga.Window(
@@ -1441,9 +1931,29 @@ class JBKGestione(toga.App):
             value=giocatore_data.get('numero_maglia') if giocatore_data and giocatore_data.get('numero_maglia') else None,
             style=Pack(padding=5, width=150)
         )
-        anno_nascita_input = toga.NumberInput(
-            value=giocatore_data.get('anno_nascita') if giocatore_data and giocatore_data.get('anno_nascita') else None,
-            style=Pack(padding=5, width=150)
+        
+        # Campo data di nascita invece di anno
+        data_nascita_label = toga.Label("Data di Nascita (GG/MM/AAAA):", style=Pack(padding=(10, 5, 0, 5)))
+        
+        # Converte la data dal database al formato italiano per la visualizzazione
+        data_nascita_display = ""
+        if giocatore_data and giocatore_data.get('data_nascita'):
+            try:
+                from datetime import datetime
+                # Se è già in formato italiano, la mantiene
+                if '/' in giocatore_data['data_nascita']:
+                    data_nascita_display = giocatore_data['data_nascita']
+                else:
+                    # Converte da formato ISO a italiano
+                    data_obj = datetime.strptime(giocatore_data['data_nascita'], '%Y-%m-%d')
+                    data_nascita_display = data_obj.strftime('%d/%m/%Y')
+            except (ValueError, TypeError):
+                data_nascita_display = giocatore_data['data_nascita']  # Mantiene il valore originale se non riesce a convertire
+        
+        data_nascita_input = toga.TextInput(
+            placeholder="GG/MM/AAAA", 
+            value=data_nascita_display,
+            style=Pack(padding=5, width=300)
         )
         idoneita_input = toga.Switch(
             text="Idoneità Sportiva",
@@ -1500,8 +2010,8 @@ class JBKGestione(toga.App):
         dialog_box.add(cognome_input)
         dialog_box.add(toga.Label("Numero Maglia:", style=Pack(padding=(10, 5, 0, 5))))
         dialog_box.add(numero_input)
-        dialog_box.add(toga.Label("Anno di Nascita:", style=Pack(padding=(10, 5, 0, 5))))
-        dialog_box.add(anno_nascita_input)
+        dialog_box.add(data_nascita_label)
+        dialog_box.add(data_nascita_input)
         dialog_box.add(idoneita_input)
         dialog_box.add(data_scadenza_label)
         dialog_box.add(data_scadenza_input)
@@ -1535,12 +2045,25 @@ class JBKGestione(toga.App):
                         self.mostra_errore("Formato data non valido. Usare GG/MM/AAAA (es. 31/12/2025)")
                         return
                 
+                # Validazione data di nascita se fornita
+                data_nascita = None
+                if data_nascita_input.value:
+                    try:
+                        from datetime import datetime
+                        # Prova il formato italiano GG/MM/AAAA
+                        data_obj = datetime.strptime(data_nascita_input.value, '%d/%m/%Y')
+                        # Salva nel database in formato ISO
+                        data_nascita = data_obj.strftime('%Y-%m-%d')
+                    except ValueError:
+                        self.mostra_errore("Formato data non valido. Usare GG/MM/AAAA (es. 31/12/2000)")
+                        return
+                
                 # Crea il dizionario con i dati del giocatore
                 giocatore_data_form = {
                     'nome': nome_input.value,
                     'cognome': cognome_input.value,
                     'numero_maglia': int(numero_input.value) if numero_input.value else None,
-                    'anno_nascita': int(anno_nascita_input.value) if anno_nascita_input.value else None,
+                    'data_nascita': data_nascita,
                     'idoneita_sportiva': idoneita_input.value,
                     'data_scadenza_idoneita': data_scadenza
                 }
@@ -1548,11 +2071,11 @@ class JBKGestione(toga.App):
                 # Controlla se stiamo modificando o creando
                 if giocatore_id:
                     # Modifica giocatore esistente
-                    self.giocatori_service.update(giocatore_id, giocatore_data_form)
+                    self.supabase_db.aggiorna_giocatore(giocatore_id, giocatore_data_form)
                     self.mostra_successo("Giocatore modificato con successo!")
                 else:
                     # Crea nuovo giocatore
-                    self.giocatori_service.create(giocatore_data_form)
+                    self.supabase_db.aggiungi_giocatore(giocatore_data_form)
                     self.mostra_successo("Giocatore aggiunto con successo!")
                 
                 self.aggiorna_lista_giocatori()
@@ -1580,13 +2103,82 @@ class JBKGestione(toga.App):
     
 
     def elimina_giocatore(self, giocatore_id):
-        """Elimina un giocatore"""
+        """Elimina un giocatore con conferma"""
         try:
-            self.giocatori_service.delete(giocatore_id)
-            self.mostra_successo("Giocatore eliminato con successo!")
-            self.aggiorna_lista_giocatori()
+            # Crea dialog di conferma con opzioni
+            dialog = toga.Window(
+                title="Conferma Eliminazione",
+                size=(400, 200)
+            )
+            
+            def soft_delete(widget):
+                self.supabase_db.elimina_giocatore(giocatore_id)
+                self.mostra_successo("Giocatore disattivato con successo!")
+                self.aggiorna_lista_giocatori()
+                dialog.close()
+            
+            def hard_delete(widget):
+                if self.supabase_db.elimina_giocatore_definitivamente(giocatore_id):
+                    self.mostra_successo("Giocatore eliminato definitivamente!")
+                else:
+                    self.mostra_errore("Errore nell'eliminazione definitiva")
+                self.aggiorna_lista_giocatori()
+                dialog.close()
+            
+            dialog_content = toga.Box(style=Pack(direction=COLUMN, padding=20))
+            dialog_content.add(toga.Label("Scegli il tipo di eliminazione:", style=Pack(margin_bottom=10)))
+            
+            btn_soft = toga.Button(
+                "🚫 Disattiva (consigliato)",
+                on_press=soft_delete,
+                style=Pack(padding=5, background_color="#ff9800", color="#ffffff")
+            )
+            btn_hard = toga.Button(
+                "🗑️ Elimina Definitivamente",
+                on_press=hard_delete,
+                style=Pack(padding=5, background_color="#f44336", color="#ffffff")
+            )
+            btn_cancel = toga.Button(
+                "❌ Annulla",
+                on_press=lambda w: dialog.close(),
+                style=Pack(padding=5, background_color="#666666", color="#ffffff")
+            )
+            
+            dialog_content.add(btn_soft)
+            dialog_content.add(btn_hard)
+            dialog_content.add(btn_cancel)
+            
+            dialog.content = dialog_content
+            dialog.show()
+            
         except Exception as e:
             self.mostra_errore(f"Errore nell'eliminare il giocatore: {str(e)}")
+    
+    def elimina_giocatore_definitivamente(self, giocatore_id):
+        """Elimina definitivamente un giocatore dal database"""
+        print(f"🗑️ DEBUG APP: Inizio eliminazione definitiva giocatore ID: {giocatore_id}")
+        try:
+            # Conferma eliminazione definitiva
+            print("🗑️ DEBUG APP: Chiamando supabase_db.elimina_giocatore_definitivamente...")
+            result = self.supabase_db.elimina_giocatore_definitivamente(giocatore_id)
+            print(f"🗑️ DEBUG APP: Risultato dalla funzione DB: {result}")
+            
+            if result:
+                print("🗑️ DEBUG APP: Eliminazione riuscita, mostrando messaggio successo")
+                self.mostra_successo("Giocatore eliminato definitivamente dal database!")
+            else:
+                print("🗑️ DEBUG APP: Eliminazione fallita")
+                self.mostra_errore("Errore nell'eliminazione definitiva. Controlla i permessi o la connessione.")
+            
+            print("🗑️ DEBUG APP: Ricaricando lista tutti giocatori...")
+            self.mostra_tutti_giocatori(None)  # Ricarica la lista completa
+            
+        except Exception as e:
+            print(f"🗑️ DEBUG APP: Eccezione catturata: {str(e)}")
+            print(f"🗑️ DEBUG APP: Tipo eccezione: {type(e)}")
+            import traceback
+            print(f"🗑️ DEBUG APP: Traceback completo:\n{traceback.format_exc()}")
+            self.mostra_errore(f"Errore nell'eliminazione definitiva: {str(e)}")
     
     def mostra_partite(self, widget):
         """Mostra la pagina gestione partite"""
@@ -1609,7 +2201,7 @@ class JBKGestione(toga.App):
     
     def crea_interfaccia_partite(self):
         """Crea l'interfaccia per la gestione partite con sidebar"""
-        container = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
+        container = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1, align_items=CENTER))
         
         # Tasti per tipologie partite con dimensioni responsive
         tipologie_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium']))
@@ -1688,11 +2280,6 @@ class JBKGestione(toga.App):
         
         # Colonna sinistra: Lista partite
         partite_column = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=2))
-        partite_title = toga.Label(
-            "📋 Elenco Partite", 
-            style=Pack(padding=(0, 0, 10, 0), font_size=14, font_weight="bold")
-        )
-        partite_column.add(partite_title)
         
         # Area contenuto dinamica per le partite
         self.partite_content = toga.Box(style=Pack(direction=COLUMN, padding=5))
@@ -1700,7 +2287,7 @@ class JBKGestione(toga.App):
         # Container scroll per le partite
         self.partite_scroll = toga.ScrollContainer(
             content=self.partite_content,
-            style=Pack(flex=1, height=400)  # Altezza minima per riempire la pagina
+            style=Pack(flex=1, height=400, background_color="#ffffff")  # Altezza minima per riempire la pagina
         )
         partite_column.add(self.partite_scroll)
         
@@ -1719,7 +2306,7 @@ class JBKGestione(toga.App):
         partite_column.add(btn_aggiungi)
         
         # Colonna destra: Sidebar giocatori e resoconti
-        sidebar_column = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1, background_color="#f5f5f5"))
+        sidebar_column = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1, background_color="#d32f2f"))
         self.crea_sidebar_giocatori(sidebar_column)
         
         main_layout.add(partite_column)
@@ -1736,7 +2323,7 @@ class JBKGestione(toga.App):
         # Titolo sidebar
         sidebar_title = toga.Label(
             "👥 Convocazioni",
-            style=Pack(padding=(0, 0, 15, 0), font_size=14, font_weight="bold")
+            style=Pack(padding=(0, 0, 15, 0), font_size=14, font_weight="bold", color="#ffffff")
         )
         sidebar_container.add(sidebar_title)
         
@@ -1746,7 +2333,7 @@ class JBKGestione(toga.App):
         # Container scroll per sidebar giocatori
         self.sidebar_scroll = toga.ScrollContainer(
             content=self.sidebar_giocatori_content,
-            style=Pack(flex=1, height=400)  # Altezza minima per riempire la sidebar
+            style=Pack(flex=1, height=400, background_color="#d32f2f")  # Altezza minima per riempire la sidebar
         )
         sidebar_container.add(self.sidebar_scroll)
         
@@ -1760,8 +2347,8 @@ class JBKGestione(toga.App):
             self.sidebar_giocatori_content.clear()
             
             # Ottieni giocatori e partite
-            giocatori = self.giocatori_service.get_all()
-            partite = self.partite_service.ottieni_tutte_partite()
+            giocatori = self.supabase_db.ottieni_tutti_giocatori()
+            partite = self.supabase_db.ottieni_tutte_partite()
             
             if not giocatori:
                 no_giocatori_label = toga.Label(
@@ -1776,7 +2363,8 @@ class JBKGestione(toga.App):
                 giocatore_box = toga.Box(style=Pack(
                     direction=ROW, 
                     padding=self.config['padding_small'],
-                    height=self.config['row_height']
+                    height=self.config['row_height'],
+                    background_color="#d32f2f"  # Sfondo rosso per le righe dei giocatori nella sidebar
                 ))
                 
                 # Info giocatore
@@ -1802,7 +2390,7 @@ class JBKGestione(toga.App):
                 # Calcola convocazioni per questo giocatore
                 convocazioni_giocatore = 0
                 for partita in partite:
-                    convocati = self.convocati_service.ottieni_convocati_partita(partita['id'])
+                    convocati = self.supabase_db.ottieni_convocati_partita(partita['id'])
                     if any(c['giocatore_id'] == giocatore['id'] for c in convocati):
                         convocazioni_giocatore += 1
                 
@@ -1813,7 +2401,8 @@ class JBKGestione(toga.App):
                     style=Pack(
                         flex=2, 
                         font_size=self.config['label_font_size'] - 2, 
-                        padding=self.config['padding_small']
+                        padding=self.config['padding_small'],
+                        color="#ffffff"  # Testo bianco per contrasto con sfondo rosso
                     )
                 )
                 
@@ -1824,7 +2413,8 @@ class JBKGestione(toga.App):
                         width=50, 
                         font_size=self.config['label_font_size'] - 2, 
                         padding=self.config['padding_small'], 
-                        text_align=CENTER
+                        text_align=CENTER,
+                        color="#ffffff"  # Testo bianco per contrasto con sfondo rosso
                     )
                 )
                 
@@ -1841,36 +2431,40 @@ class JBKGestione(toga.App):
     
 
     def filtra_partite(self, tipologia):
-        """Filtra le partite per tipologia"""
+        """Mostra tutte le partite (filtraggio per tipologia non più supportato)"""
         # Salva la tipologia corrente per l'aggiunta di nuove partite
         self.tipologia_corrente = tipologia
         self.partite_content.clear()
         
         try:
+            # Filtra le partite in base alla tipologia selezionata
             if tipologia == "tutte":
-                partite = self.partite_service.ottieni_tutte_partite()
-                title = "📋 Tutte le Partite"
+                partite = self.supabase_db.ottieni_tutte_partite()
+                title = "🏀 Tutte le Partite"
             else:
-                partite = self.partite_service.ottieni_partite_per_tipologia(tipologia)
-                title_map = {
-                    "pre-stagione": "🔥 Partite Pre-stagione",
-                    "stagione regolare": "🏆 Partite Stagione Regolare",
-                    "post-stagione": "🥇 Partite Post-stagione",
-                    "tornei": "🏅 Partite Tornei"
+                # Filtra le partite per tipologia
+                tutte_partite = self.supabase_db.ottieni_tutte_partite()
+                partite = [partita for partita in tutte_partite if partita.get('tipologia', '').lower() == tipologia.lower()]
+                # Mappa i titoli per ogni tipologia
+                titoli_tipologia = {
+                    "pre-stagione": "🔥 Pre-stagione",
+                    "stagione regolare": "🏆 Stagione Regolare", 
+                    "post-stagione": "🥇 Post-stagione",
+                    "tornei": "� Tornei"
                 }
-                title = title_map.get(tipologia, f"📋 Partite {tipologia.title()}")
+                title = titoli_tipologia.get(tipologia.lower(), f"🏀 {tipologia.title()}")
             
             # Titolo sezione
             title_label = toga.Label(
                 title,
-                style=Pack(font_size=18, font_weight="bold", padding=(10, 5))
+                style=Pack(font_size=18, font_weight="bold", padding=(10, 5), background_color="#ff6666", color="#ffffff")
             )
             self.partite_content.add(title_label)
             
             if not partite:
                 # Nessuna partita trovata
                 no_partite_label = toga.Label(
-                    f"Nessuna partita trovata per '{tipologia}'",
+                    "Nessuna partita trovata",
                     style=Pack(font_style="italic", padding=20, text_align=CENTER)
                 )
                 self.partite_content.add(no_partite_label)
@@ -1895,14 +2489,15 @@ class JBKGestione(toga.App):
         partita_box = toga.Box(style=Pack(
             direction=ROW, 
             padding=self.config['padding_medium'],
-            height=self.config['row_height']  # Altezza fissa per righe più grandi
+            height=self.config['row_height'],  # Altezza fissa per righe più grandi
+            background_color="#d32f2f"  # Sfondo rosso per le righe delle partite
         ))
         
         # Icona casa/trasferta
-        casa_icon = "🏠" if partita.get('in_casa', True) else "✈️"
+        casa_icon = "🏠" if partita.get('casa_trasferta', 'casa') == 'casa' else "✈️"
         
         # Prefisso casa/trasferta per avversario
-        vs_prefix = "vs" if partita.get('in_casa', True) else "@"
+        vs_prefix = "vs" if partita.get('casa_trasferta', 'casa') == 'casa' else "@"
         
         # Formatta risultato se presente
         risultato = ""
@@ -1916,7 +2511,7 @@ class JBKGestione(toga.App):
             "post-stagione": "#2196f3",
             "tornei": "#9c27b0"
         }
-        tipologia_color = tipologia_colors.get(partita.get('tipologia', 'stagione regolare'), "#607d8b")
+        tipologia_color = tipologia_colors.get('stagione regolare', "#607d8b")
         
         # Box per informazioni partita (due righe)
         info_box = toga.Box(style=Pack(direction=COLUMN, flex=1, padding=self.config['padding_small']))
@@ -1927,29 +2522,49 @@ class JBKGestione(toga.App):
             prima_riga_text,
             style=Pack(
                 font_size=self.config['label_font_size'],
-                font_weight="bold"
+                font_weight="bold",
+                color="#ffffff"  # Testo bianco per contrasto con sfondo rosso
             )
         )
         
         # Seconda riga: data e ora (carattere più piccolo)
-        seconda_riga_text = f"📅 {partita['data']} ⏰ {partita['ora']}"
+        # Converte la data dal formato YYYY-MM-DD a GG/MM/AAAA per la visualizzazione
+        try:
+            from datetime import datetime
+            data_obj = datetime.strptime(partita['data'], '%Y-%m-%d')
+            data_formattata = data_obj.strftime('%d/%m/%Y')
+        except:
+            data_formattata = partita['data']  # Fallback se il parsing fallisce
+        
+        seconda_riga_text = f"📅 {data_formattata} ⏰ {partita['ora']}"
         seconda_riga_label = toga.Label(
             seconda_riga_text,
             style=Pack(
                 font_size=self.config['label_font_size'] - 3,
-                color="#666666"
+                color="#ffcccc"  # Rosa chiaro per contrasto con sfondo rosso
             )
         )
         
         info_box.add(prima_riga_label)
         info_box.add(seconda_riga_label)
         
+        # Colore per tipologia basato sui pulsanti di filtro
+        tipologia_colors = {
+            "pre-stagione": "#ff9800",      # Arancione come il pulsante "🔥 Pre-stagione"
+            "stagione regolare": "#4caf50", # Verde come il pulsante "🏆 Stagione Regolare"
+            "post-stagione": "#2196f3",     # Blu come il pulsante "🥇 Post-stagione"
+            "tornei": "#9c27b0"             # Viola come il pulsante "🏅 Tornei"
+        }
+        
         # Badge tipologia
+        tipologia_valore = partita.get('tipologia', 'stagione regolare').lower()
+        tipologia_color = tipologia_colors.get(tipologia_valore, "#ff6666")  # Default rosso se non trovato
+        
         tipologia_label = toga.Label(
             partita.get('tipologia', 'stagione regolare').title(),
             style=Pack(
                 padding=self.config['padding_small'], 
-                background_color=tipologia_color, 
+                background_color=tipologia_color,
                 color="#ffffff",
                 font_size=self.config['label_font_size'] - 2
             )
@@ -2039,7 +2654,7 @@ class JBKGestione(toga.App):
         """Crea l'interfaccia per la gestione degli allenamenti con calendario"""
         print("📅 DEBUG CALENDAR: Creazione interfaccia allenamenti iniziata")
         
-        container = toga.Box(style=Pack(direction=COLUMN, padding=8, flex=1))  # Padding ridotto per layout compatto
+        container = toga.Box(style=Pack(direction=COLUMN, padding=8, flex=1, align_items=CENTER))  # Padding ridotto per layout compatto
         
         # Header con controlli settimana con stile consistente
         header_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium']))
@@ -2055,7 +2670,7 @@ class JBKGestione(toga.App):
             on_press=self.vai_settimana_precedente,
             style=Pack(
                 padding=self.config['padding_medium'],
-                background_color="#34495e",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size'] + 4,
                 width=80,
@@ -2081,7 +2696,7 @@ class JBKGestione(toga.App):
             on_press=self.vai_settimana_successiva,
             style=Pack(
                 padding=self.config['padding_medium'],
-                background_color="#34495e",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size'] + 4,
                 width=80,
@@ -2114,7 +2729,7 @@ class JBKGestione(toga.App):
             style=Pack(
                 font_size=self.config['button_font_size'],
                 font_weight="bold",
-                color="#2c3e50",
+                color="#d32f2f",
                 text_align=CENTER,
                 padding=self.config['padding_medium'],
                 background_color="#ecf0f1"
@@ -2179,8 +2794,28 @@ class JBKGestione(toga.App):
         container.add(self.statistiche_presenze_box)
         
         # Ora che tutti i container sono creati, aggiorna il calendario e le statistiche
-        self.aggiorna_calendario_settimanale()
-        self.aggiorna_statistiche_presenze()
+        # Verifica autenticazione prima di aggiornare il calendario
+        from .supabase_auth import auth_service
+        if auth_service.is_authenticated():
+            self.aggiorna_calendario_settimanale()
+            self.aggiorna_statistiche_presenze()
+        else:
+            print("📅 DEBUG CALENDAR: Utente non autenticato - calendario non aggiornato")
+            # Mostra messaggio di autenticazione richiesta nel calendario
+            self.calendario_box.clear()
+            auth_message = toga.Label(
+                "🔐 AUTENTICAZIONE RICHIESTA\n\n"
+                "Effettua il login per visualizzare\n"
+                "gli allenamenti programmati",
+                style=Pack(
+                    font_size=self.config['label_font_size'] + 2,
+                    color="#e74c3c",
+                    text_align=CENTER,
+                    padding=self.config['padding_large'],
+                    font_weight="bold"
+                )
+            )
+            self.calendario_box.add(auth_message)
         
         print("📅 DEBUG CALENDAR: Interfaccia allenamenti creata con lista laterale e statistiche presenze estese")
         return container
@@ -2215,6 +2850,17 @@ class JBKGestione(toga.App):
         """Aggiorna il calendario settimanale con gli allenamenti"""
         print("📅 DEBUG CALENDAR: Aggiornamento calendario settimanale")
         
+        # Verifica autenticazione prima di procedere
+        from jbkgestione.supabase_auth import auth_service
+        if not auth_service.is_authenticated():
+            print("📅 DEBUG CALENDAR: Utente non autenticato - skip aggiornamento calendario")
+            return
+        
+        # Debug: controlla settimana corrente e allenamenti totali
+        settimana_inizio = self.settimana_corrente.strftime('%Y-%m-%d')
+        settimana_fine = (self.settimana_corrente + timedelta(days=6)).strftime('%Y-%m-%d')
+        print(f"📅 DEBUG CALENDAR: Settimana corrente: {settimana_inizio} - {settimana_fine}")
+        
         # Pulisce il calendario esistente
         self.calendario_box.clear()
         
@@ -2223,6 +2869,8 @@ class JBKGestione(toga.App):
         
         for i, nome_giorno in enumerate(giorni_settimana):
             data_giorno = self.settimana_corrente + timedelta(days=i)
+            data_str = data_giorno.strftime('%Y-%m-%d')
+            print(f"📅 DEBUG CALENDAR: Controllo giorno {nome_giorno} - {data_str}")
             
             # Container per il giorno
             giorno_box = toga.Box(style=Pack(
@@ -2235,8 +2883,8 @@ class JBKGestione(toga.App):
             header_giorno = toga.Box(style=Pack(
                 direction=ROW, 
                 padding=self.config['padding_medium'],
-                background_color="#34495e" if i % 2 == 0 else "#2c3e50",
-                alignment=CENTER
+                background_color="#d32f2f" if i % 2 == 0 else "#ff6666",
+                align_items=CENTER
             ))
             
             label_giorno = toga.Label(
@@ -2269,12 +2917,15 @@ class JBKGestione(toga.App):
             
             # Carica e mostra allenamenti per questo giorno
             allenamenti_giorno = self.carica_allenamenti_giorno(data_giorno)
+            print(f"📅 DEBUG CALENDAR: Trovati {len(allenamenti_giorno)} allenamenti per {data_str}")
             
             if allenamenti_giorno:
+                print(f"📅 DEBUG CALENDAR: Creazione widget per {len(allenamenti_giorno)} allenamenti")
                 for allenamento in allenamenti_giorno:
                     allenamento_box = self.crea_widget_allenamento(allenamento)
                     giorno_box.add(allenamento_box)
             else:
+                print(f"📅 DEBUG CALENDAR: Nessun allenamento per {data_str}, mostro messaggio riposo")
                 # Messaggio elegante se non ci sono allenamenti
                 nessun_allenamento = toga.Label(
                     "— riposo —",
@@ -2305,8 +2956,15 @@ class JBKGestione(toga.App):
             
             try:
                 # Carica tutti gli allenamenti dal database
-                allenamenti_service = AllenamentiService(self.db_manager)
-                tutti_allenamenti = allenamenti_service.ottieni_tutti_allenamenti()
+                # RIMOSSO: AllenamentiService (solo Supabase)
+                from jbkgestione.supabase_auth import auth_service
+                categorie_utente = auth_service.current_user_categories
+                if isinstance(categorie_utente, str):
+                    try:
+                        categorie_utente = json.loads(categorie_utente)
+                    except Exception:
+                        categorie_utente = [categorie_utente]
+                tutti_allenamenti = self.supabase_db.ottieni_allenamenti_per_categorie(categorie_utente)
                 
                 print(f"📅 DEBUG LIST: Trovati {len(tutti_allenamenti)} allenamenti totali")
                 
@@ -2377,24 +3035,30 @@ class JBKGestione(toga.App):
     def crea_item_lista_allenamento(self, allenamento):
         """Crea un item per la lista laterale degli allenamenti"""
         # Container principale dell'item
+        print(f"[DEBUG] Creo card allenamento per: {allenamento}")
         item_box = toga.Box(style=Pack(
             direction=COLUMN,
             padding=self.config['padding_small'],
-            background_color="#f8f9fa"
+            background_color=None
         ))
         
         # Data e ora
-        data_formatted = datetime.strptime(allenamento['data'], '%Y-%m-%d').strftime('%d/%m/%Y')
-        ora_info = f"{allenamento['ora_inizio']}"
+        try:
+            data_formatted = datetime.strptime(allenamento['data'], '%Y-%m-%d').strftime('%d/%m/%Y')
+        except Exception as e:
+            print(f"[DEBUG] Errore parsing data allenamento: {allenamento.get('data')} - {e}")
+            data_formatted = allenamento.get('data', 'N/A')
+        ora_info = f"{allenamento.get('ora', 'N/A')}"
         if allenamento.get('ora_fine'):
             ora_info += f" - {allenamento['ora_fine']}"
+        print(f"[DEBUG] Ora allenamento: {ora_info}")
             
         data_label = toga.Label(
             f"📅 {data_formatted}",
             style=Pack(
                 font_size=self.config['label_font_size'],
                 font_weight="bold",
-                color="#2c3e50",
+                color="#ffffff",
                 padding=(2, 0)
             )
         )
@@ -2403,7 +3067,7 @@ class JBKGestione(toga.App):
             f"🕐 {ora_info}",
             style=Pack(
                 font_size=self.config['label_font_size'] - 1,
-                color="#34495e",
+                color="#ffffff",
                 padding=(1, 0)
             )
         )
@@ -2416,26 +3080,27 @@ class JBKGestione(toga.App):
             tipo_luogo.append(f"📍 {allenamento['luogo']}")
             
         if tipo_luogo:
+            print(f"[DEBUG] Tipo/luogo allenamento: {tipo_luogo}")
             info_label = toga.Label(
                 " | ".join(tipo_luogo),
                 style=Pack(
                     font_size=self.config['label_font_size'] - 1,
-                    color="#7f8c8d",
+                    color="#ffffff",
                     padding=(1, 0)
                 )
             )
             item_box.add(info_label)
         
         # Pulsanti azione con stile consistente
-        actions_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium'], alignment=CENTER))
+        actions_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium'], align_items=CENTER))
         
         btn_presenze = toga.Button(
-            "P",
+            "👥",
             on_press=lambda w, all=allenamento: self.gestisci_presenze_allenamento(all),
             style=Pack(
                 width=60,
                 height=self.config['button_height'],
-                background_color="#3498db",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size'],
                 padding=self.config['padding_small'],
@@ -2444,7 +3109,7 @@ class JBKGestione(toga.App):
         )
         
         btn_modifica = toga.Button(
-            "E",
+            "✏️",
             on_press=lambda w, all=allenamento: self.modifica_allenamento(all),
             style=Pack(
                 width=60,
@@ -2547,7 +3212,7 @@ class JBKGestione(toga.App):
                     title_box = toga.Box(style=Pack(
                         direction=ROW,
                         padding=self.config['padding_medium'],
-                        background_color="#3498db",
+                        background_color="#d32f2f",
                         align_items=CENTER
                     ))
                     
@@ -2660,7 +3325,7 @@ class JBKGestione(toga.App):
                         style=Pack(
                             font_size=self.config['label_font_size'] + 2,
                             font_weight="bold",
-                            color="#34495e",
+                            color="#d32f2f",
                             text_align=CENTER,
                             padding=(0, 0, 10, 0)
                         )
@@ -2706,15 +3371,21 @@ class JBKGestione(toga.App):
         
         try:
             # Ottieni tutti i giocatori attivi
-            print("📊 DEBUG STATS: Creazione GiocatoriService...")
-            giocatori_service = GiocatoriService(self.db_manager)
+            # RIMOSSO: GiocatoriService (solo Supabase)
             print("📊 DEBUG STATS: Ottenimento giocatori attivi...")
-            giocatori_attivi = giocatori_service.ottieni_tutti_giocatori()
+            giocatori_attivi = self.supabase_db.ottieni_tutti_giocatori()
             print(f"📊 DEBUG STATS: {len(giocatori_attivi)} giocatori attivi trovati")
             
             # Ottieni tutti gli allenamenti
-            allenamenti_service = AllenamentiService(self.db_manager)
-            tutti_allenamenti = allenamenti_service.ottieni_tutti_allenamenti()
+            # RIMOSSO: AllenamentiService (solo Supabase)
+            from jbkgestione.supabase_auth import auth_service
+            categorie_utente = auth_service.current_user_categories
+            if isinstance(categorie_utente, str):
+                try:
+                    categorie_utente = json.loads(categorie_utente)
+                except Exception:
+                    categorie_utente = [categorie_utente]
+            tutti_allenamenti = self.supabase_db.ottieni_allenamenti_per_categorie(categorie_utente)
             
             # Filtra gli allenamenti della settimana corrente
             inizio_settimana = self.settimana_corrente
@@ -2907,10 +3578,11 @@ class JBKGestione(toga.App):
     def carica_allenamenti_giorno(self, data):
         """Carica gli allenamenti per un giorno specifico"""
         try:
-            allenamenti_service = AllenamentiService(self.db_manager)
+            # RIMOSSO: AllenamentiService (solo Supabase)
             data_str = data.strftime('%Y-%m-%d')
-            allenamenti = allenamenti_service.ottieni_allenamenti_per_data(data_str)
-            print(f"📅 DEBUG CALENDAR: Caricati {len(allenamenti)} allenamenti per {data_str}")
+            print(f"📅 DEBUG CALENDAR: Query database per data: {data_str}")
+            allenamenti = self.supabase_db.ottieni_allenamenti_per_data(data_str)
+            print(f"📅 DEBUG CALENDAR: Database restituito {len(allenamenti)} allenamenti per {data_str}")
             return allenamenti
         except Exception as e:
             print(f"📅 DEBUG CALENDAR: Errore caricamento allenamenti: {str(e)}")
@@ -2921,8 +3593,8 @@ class JBKGestione(toga.App):
         allenamento_box = toga.Box(style=Pack(
             direction=ROW,
             padding=self.config['padding_medium'],
-            background_color="#3498db",
-            alignment=CENTER
+            background_color="#d32f2f",
+            align_items=CENTER
         ))
         
         # Informazioni allenamento in formato compatto
@@ -2930,7 +3602,7 @@ class JBKGestione(toga.App):
         
         # Prima riga: orario + tipo con font consistente
         prima_riga = toga.Label(
-            f"⏰ {allenamento.get('ora_inizio', 'N/A')}-{allenamento.get('ora_fine', 'N/A')} • {allenamento.get('tipo', 'Allenamento')[:12]}",
+            f"⏰ {allenamento.get('ora', 'N/A')} • {allenamento.get('tipo', 'Allenamento')[:12]}",
             style=Pack(
                 font_size=self.config['label_font_size'],
                 color="#ffffff",
@@ -2954,10 +3626,10 @@ class JBKGestione(toga.App):
             info_box.add(prima_riga)
         
         # Pulsanti azioni con stile consistente
-        azioni_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium'], alignment=CENTER))
+        azioni_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium'], align_items=CENTER))
         
         btn_presenze = toga.Button(
-            "P",
+            "👥",
             on_press=lambda w: self.gestisci_presenze_allenamento(allenamento),
             style=Pack(
                 width=60,
@@ -2971,7 +3643,7 @@ class JBKGestione(toga.App):
         )
         
         btn_modifica = toga.Button(
-            "E",
+            "✏️",
             on_press=lambda w: self.modifica_allenamento(allenamento),
             style=Pack(
                 width=60,
@@ -3004,10 +3676,9 @@ class JBKGestione(toga.App):
         """Mostra il form per creare un nuovo allenamento"""
         print("📅 DEBUG FORM: Apertura form nuovo allenamento")
         
-        # Pulisce il contenuto e mostra il form
-        self.dynamic_content.clear()
-        
-        form_container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['content_padding']))
+        # Crea il dialog come finestra separata
+        dialog = toga.Window(title="➕ Nuovo Allenamento", size=(400, 500))
+        dialog_box = toga.Box(style=Pack(direction=COLUMN, padding=20))
         
         # Titolo
         title_label = toga.Label(
@@ -3020,10 +3691,14 @@ class JBKGestione(toga.App):
                 padding=self.config['padding_large']
             )
         )
-        form_container.add(title_label)
+        dialog_box.add(title_label)
         
         # Form fields
-        form_box = toga.Box(style=Pack(direction=COLUMN, padding=self.config['padding_medium']))
+        form_box = toga.Box(style=Pack(
+            direction=COLUMN, 
+            padding=self.config['padding_medium'],
+            align_items=CENTER  # Centra i campi del form
+        ))
         
         # Data
         data_label = toga.Label("Data:", style=Pack(font_size=self.config['label_font_size'], padding=5))
@@ -3082,10 +3757,14 @@ class JBKGestione(toga.App):
         form_box.add(descrizione_label)
         form_box.add(self.input_descrizione_allenamento)
         
-        form_container.add(form_box)
+        dialog_box.add(form_box)
         
         # Pulsanti azione
-        buttons_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_medium']))
+        buttons_box = toga.Box(style=Pack(
+            direction=ROW, 
+            padding=self.config['padding_medium'],
+            align_items=CENTER  # Centra i pulsanti
+        ))
         
         btn_salva = toga.Button(
             "💾 SALVA ALLENAMENTO",
@@ -3101,7 +3780,7 @@ class JBKGestione(toga.App):
         
         btn_annulla = toga.Button(
             "❌ ANNULLA",
-            on_press=lambda w: self.mostra_allenamenti(None),
+            on_press=lambda w: dialog.close(),
             style=Pack(
                 padding=self.config['padding_medium'],
                 height=self.config['button_height'],
@@ -3113,51 +3792,70 @@ class JBKGestione(toga.App):
         
         buttons_box.add(btn_salva)
         buttons_box.add(btn_annulla)
-        form_container.add(buttons_box)
+        dialog_box.add(buttons_box)
         
-        self.dynamic_content.add(form_container)
+        dialog.content = dialog_box
+        dialog.show()
+        self.dialog_allenamento_corrente = dialog
         print("📅 DEBUG FORM: Form nuovo allenamento creato")
     
     def salva_nuovo_allenamento(self, widget):
         """Salva il nuovo allenamento nel database"""
-        print("📅 DEBUG SAVE: Salvataggio nuovo allenamento")
+        print("📅 DEBUG SAVE: === INIZIO SALVATAGGIO NUOVO ALLENAMENTO ===")
         
         try:
             # Validazione campi
+            print(f"📅 DEBUG SAVE: Validazione data: '{self.input_data_allenamento.value}'")
             if not self.input_data_allenamento.value:
+                print("📅 DEBUG SAVE: ERRORE - Data mancante")
                 self.mostra_messaggio_errore("La data è obbligatoria")
                 return
             
+            print(f"📅 DEBUG SAVE: Validazione ora inizio: '{self.input_ora_inizio.value}'")
             if not self.input_ora_inizio.value:
+                print("📅 DEBUG SAVE: ERRORE - Ora inizio mancante")
                 self.mostra_messaggio_errore("L'ora di inizio è obbligatoria")
                 return
             
             # Crea oggetto allenamento
-            nuovo_allenamento = Allenamento(
-                data=self.input_data_allenamento.value,
-                ora_inizio=self.input_ora_inizio.value,
-                ora_fine=self.input_ora_fine.value or "",
-                luogo=self.input_luogo_allenamento.value or "",
-                tipo=self.input_tipo_allenamento.value or "Allenamento",
-                descrizione=self.input_descrizione_allenamento.value or ""
-            )
+            nuovo_allenamento = {
+                'data': self.input_data_allenamento.value,
+                'ora': self.input_ora_inizio.value,
+                'luogo': self.input_luogo_allenamento.value or "",
+                'tipo': self.input_tipo_allenamento.value or "allenamento",
+                'note': self.input_descrizione_allenamento.value or ""
+            }
+            print(f"📅 DEBUG SAVE: Oggetto allenamento creato: {nuovo_allenamento}")
+            
+            # Verifica autenticazione prima del salvataggio
+            from jbkgestione.supabase_auth import auth_service
+            print(f"📅 DEBUG SAVE: Stato autenticazione - Autenticato: {auth_service.is_authenticated()}, Ruolo: {auth_service.current_user_role}")
             
             # Salva nel database
-            allenamenti_service = AllenamentiService(self.db_manager)
-            successo = allenamenti_service.aggiungi_allenamento(nuovo_allenamento)
+            print("📅 DEBUG SAVE: Chiamata a aggiungi_allenamento...")
+            successo = self.supabase_db.aggiungi_allenamento(nuovo_allenamento)
+            print(f"📅 DEBUG SAVE: Risultato aggiungi_allenamento: {successo}")
             
             if successo:
-                print("📅 DEBUG SAVE: Allenamento salvato con successo")
+                print("📅 DEBUG SAVE: SUCCESSO - Allenamento salvato")
                 self.mostra_messaggio_successo("Allenamento salvato con successo!")
+                print("📅 DEBUG SAVE: Chiamata mostra_allenamenti per tornare al calendario")
                 # Aggiorna il calendario e la lista
                 self.aggiorna_calendario_settimanale()
                 # Torna al calendario
                 self.mostra_allenamenti(None)
+                # Chiudi il dialog
+                if hasattr(self, 'dialog_allenamento_corrente'):
+                    self.dialog_allenamento_corrente.close()
+                print("📅 DEBUG SAVE: === SALVATAGGIO COMPLETATO ===")
             else:
+                print("📅 DEBUG SAVE: ERRORE - Salvataggio fallito")
                 self.mostra_messaggio_errore("Errore nel salvataggio dell'allenamento")
                 
         except Exception as e:
-            print(f"📅 DEBUG SAVE: Errore salvataggio: {str(e)}")
+            print(f"📅 DEBUG SAVE: ECCEZIONE: {str(e)}")
+            import traceback
+            traceback.print_exc()
             self.mostra_messaggio_errore(f"Errore: {str(e)}")
     
     def gestisci_presenze_allenamento(self, allenamento):
@@ -3167,11 +3865,11 @@ class JBKGestione(toga.App):
         # Pulisce il contenuto e mostra il form presenze
         self.dynamic_content.clear()
         
-        container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['content_padding']))
+        container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['content_padding'], align_items=CENTER))
         
         # Titolo specifico per l'allenamento
         data_formattata = allenamento.get('data', 'N/A')
-        ora_formattata = allenamento.get('ora_inizio', 'N/A')
+        ora_formattata = allenamento.get('ora', 'N/A')
         title = toga.Label(
             f"👥 PRESENZE - {data_formattata} ore {ora_formattata}",
             style=Pack(
@@ -3188,7 +3886,7 @@ class JBKGestione(toga.App):
         info_box = toga.Box(style=Pack(direction=COLUMN, padding=self.config['padding_medium'], background_color="#ecf0f1"))
         
         info_allenamento = toga.Label(
-            f"📅 {allenamento.get('data')} | 🕐 {allenamento.get('ora_inizio')} - {allenamento.get('ora_fine', 'N/A')}\n"
+            f"📅 {allenamento.get('data')} | 🕐 {allenamento.get('ora', 'N/A')}\n"
             f"📍 {allenamento.get('luogo', 'Da definire')} | 📋 {allenamento.get('tipo', 'Allenamento')}",
             style=Pack(
                 font_size=self.config['label_font_size'],
@@ -3221,8 +3919,8 @@ class JBKGestione(toga.App):
         container.add(conferma_box)
         
         # Lista giocatori con checkbox presenze
-        giocatori_service = GiocatoriService(self.db_manager)
-        giocatori_attivi = giocatori_service.ottieni_tutti_giocatori()
+    # RIMOSSO: GiocatoriService (solo Supabase)
+        giocatori_attivi = self.supabase_db.ottieni_tutti_giocatori()
         presenze_attuali = allenamento.get('presenze', [])
         
         presenze_box = toga.Box(style=Pack(direction=COLUMN, padding=self.config['padding_medium']))
@@ -3360,7 +4058,7 @@ class JBKGestione(toga.App):
             style=Pack(
                 padding=self.config['padding_medium'],
                 height=self.config['button_height'],
-                background_color="#3498db",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['button_font_size']
             )
@@ -3593,27 +4291,18 @@ class JBKGestione(toga.App):
                 assenze_giustificate = [gid for gid, giustificato in self.checkbox_giustificazioni.items() if giustificato and not self.checkbox_presenze.get(gid, False)]
             
             # Aggiorna nel database
-            conn = sqlite3.connect(self.db_manager.db_path)
-            cursor = conn.cursor()
+            # RIMOSSO: connessione sqlite3 (solo Supabase)
+            dati_aggiornamento = {
+                'presenze': presenze,
+                'assenze_giustificate': assenze_giustificate
+            }
+            success = self.supabase_db.aggiorna_allenamento(self.allenamento_corrente['id'], dati_aggiornamento)
             
-            # Verifica se la colonna assenze_giustificate esiste, altrimenti la crea
-            cursor.execute("PRAGMA table_info(allenamenti)")
-            columns = [column[1] for column in cursor.fetchall()]
-            
-            if 'assenze_giustificate' not in columns:
-                cursor.execute("ALTER TABLE allenamenti ADD COLUMN assenze_giustificate TEXT DEFAULT '[]'")
-                print("📅 DEBUG PRESENZE: Aggiunta colonna assenze_giustificate")
-            
-            cursor.execute(
-                "UPDATE allenamenti SET presenze = ?, assenze_giustificate = ? WHERE id = ?",
-                (json.dumps(presenze), json.dumps(assenze_giustificate), self.allenamento_corrente['id'])
-            )
-            
-            conn.commit()
-            conn.close()
-            
-            print(f"📅 DEBUG PRESENZE: Salvate {len(presenze)} presenze e {len(assenze_giustificate)} assenze giustificate")
-            self.mostra_messaggio_successo(f"Salvate {len(presenze)} presenze e {len(assenze_giustificate)} assenze giustificate!")
+            if success:
+                print(f"📅 DEBUG PRESENZE: Salvate {len(presenze)} presenze e {len(assenze_giustificate)} assenze giustificate")
+                self.mostra_messaggio_successo(f"Salvate {len(presenze)} presenze e {len(assenze_giustificate)} assenze giustificate!")
+            else:
+                self.mostra_errore("Errore nel salvataggio delle presenze!")
             # Aggiorna le statistiche presenze
             self.aggiorna_statistiche_presenze()
             # NON tornare alla pagina allenamenti per permettere ulteriori modifiche
@@ -3626,11 +4315,329 @@ class JBKGestione(toga.App):
             self._salvando_presenze = False
             self.mostra_messaggio_errore(f"Errore nel salvataggio: {str(e)}")
     
+    def salva_modifiche_allenamento(self, allenamento_id):
+        """Salva le modifiche apportate all'allenamento"""
+        print(f"📅 DEBUG MODIFICA: Salvataggio modifiche allenamento ID {allenamento_id}")
+
+        try:
+            # Validazione campi
+            if not self.input_data_allenamento_modifica.value:
+                self.mostra_messaggio_errore("La data è obbligatoria")
+                return
+
+            if not self.input_ora_inizio_modifica.value:
+                self.mostra_messaggio_errore("L'ora di inizio è obbligatoria")
+                return
+
+            # Crea oggetto con le modifiche
+            modifiche = {
+                'data': self.input_data_allenamento_modifica.value,
+                'ora': self.input_ora_inizio_modifica.value,
+                'luogo': self.input_luogo_allenamento_modifica.value or "",
+                'tipo': self.input_tipo_allenamento_modifica.value or "allenamento",
+                'note': self.input_descrizione_allenamento_modifica.value or ""
+            }
+
+            # Aggiungi ora fine se specificata
+            if self.input_ora_fine_modifica.value:
+                modifiche['ora_fine'] = self.input_ora_fine_modifica.value
+
+            print(f"📅 DEBUG MODIFICA: Modifiche da salvare: {modifiche}")
+
+            # Salva nel database
+            successo = self.supabase_db.aggiorna_allenamento(allenamento_id, modifiche)
+
+            if successo:
+                print("📅 DEBUG MODIFICA: Modifiche salvate con successo")
+                self.mostra_messaggio_successo("Allenamento modificato con successo!")
+                # Aggiorna il calendario e torna alla vista principale
+                self.aggiorna_calendario_settimanale()
+                self.mostra_allenamenti(None)
+            else:
+                print("📅 DEBUG MODIFICA: Errore nel salvataggio delle modifiche")
+                self.mostra_messaggio_errore("Errore nel salvataggio delle modifiche")
+
+        except Exception as e:
+            print(f"📅 DEBUG MODIFICA: Errore durante il salvataggio: {str(e)}")
+            self.mostra_messaggio_errore(f"Errore: {str(e)}")
+
     def modifica_allenamento(self, allenamento):
-        """Modifica un allenamento esistente"""
-        print(f"📅 DEBUG MODIFICA: Modifica allenamento ID {allenamento.get('id')}")
-        # TODO: Implementare modifica allenamento
-        self.mostra_messaggio_info("Funzione di modifica in sviluppo")
+        """Mostra il form per modificare un allenamento esistente"""
+        print(f"📅 DEBUG MODIFICA: modifica_allenamento chiamato per allenamento: {allenamento}")
+
+        try:
+            # Salva riferimento all'allenamento in modifica
+            self.allenamento_in_modifica = allenamento
+
+            # Crea il dialog di modifica
+            dialog_container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['content_padding']))
+
+            # Titolo
+            title = toga.Label(
+                "✏️ MODIFICA ALLENAMENTO",
+                style=Pack(
+                    font_size=self.config['title_font_size'],
+                    font_weight="bold",
+                    color="#2c3e50",
+                    text_align=CENTER,
+                    padding=self.config['padding_large']
+                )
+            )
+            dialog_container.add(title)
+
+            # Info allenamento corrente
+            info_text = f"📅 {allenamento.get('data', 'N/A')} {allenamento.get('ora', 'N/A')}\n🏢 {allenamento.get('luogo', 'N/A')}\n🏷️ {allenamento.get('tipo', 'allenamento').title()}"
+            info_label = toga.Label(
+                info_text,
+                style=Pack(
+                    font_size=self.config['label_font_size'],
+                    color="#7f8c8d",
+                    text_align=CENTER,
+                    padding=self.config['padding_medium']
+                )
+            )
+            dialog_container.add(info_label)
+
+            # Form container
+            form_container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['padding_large']))
+
+            # Campo Data
+            data_label = toga.Label(
+                "📅 Data:",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_data_allenamento_modifica = toga.TextInput(
+                placeholder="gg/mm/aaaa",
+                value=allenamento.get('data', ''),
+                style=Pack(padding=5, width=250)
+            )
+            form_container.add(data_label)
+            form_container.add(self.input_data_allenamento_modifica)
+
+            # Campo Ora Inizio
+            ora_label = toga.Label(
+                "⏰ Ora inizio:",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_ora_inizio_modifica = toga.TextInput(
+                placeholder="HH:MM",
+                value=allenamento.get('ora', ''),
+                style=Pack(padding=5, width=250)
+            )
+            form_container.add(ora_label)
+            form_container.add(self.input_ora_inizio_modifica)
+
+            # Campo Ora Fine (opzionale)
+            ora_fine_label = toga.Label(
+                "⏰ Ora fine (opzionale):",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_ora_fine_modifica = toga.TextInput(
+                placeholder="HH:MM",
+                value=allenamento.get('ora_fine', ''),
+                style=Pack(padding=5, width=250)
+            )
+            form_container.add(ora_fine_label)
+            form_container.add(self.input_ora_fine_modifica)
+
+            # Campo Luogo
+            luogo_label = toga.Label(
+                "🏢 Luogo:",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_luogo_allenamento_modifica = toga.TextInput(
+                placeholder="Campo di allenamento",
+                value=allenamento.get('luogo', ''),
+                style=Pack(padding=5, width=250)
+            )
+            form_container.add(luogo_label)
+            form_container.add(self.input_luogo_allenamento_modifica)
+
+            # Campo Tipo
+            tipo_label = toga.Label(
+                "🏷️ Tipo:",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_tipo_allenamento_modifica = toga.Selection(
+                items=["allenamento", "partita", "torneo", "altro"],
+                value=allenamento.get('tipo', 'allenamento'),
+                style=Pack(padding=5, width=250)
+            )
+            form_container.add(tipo_label)
+            form_container.add(self.input_tipo_allenamento_modifica)
+
+            # Campo Note
+            note_label = toga.Label(
+                "📝 Note:",
+                style=Pack(font_size=self.config['label_font_size'], font_weight="bold", padding=(10, 5, 0, 5))
+            )
+            self.input_descrizione_allenamento_modifica = toga.MultilineTextInput(
+                placeholder="Note aggiuntive...",
+                value=allenamento.get('note', ''),
+                style=Pack(padding=5, width=250, height=80)
+            )
+            form_container.add(note_label)
+            form_container.add(self.input_descrizione_allenamento_modifica)
+
+            dialog_container.add(form_container)
+
+            # Pulsanti
+            buttons_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_large']))
+
+            btn_salva = toga.Button(
+                "💾 SALVA",
+                on_press=lambda w: self.salva_modifiche_allenamento(allenamento['id']),
+                style=Pack(
+                    padding=self.config['padding_medium'],
+                    height=self.config['button_height'],
+                    background_color="#27ae60",
+                    color="#ffffff",
+                    font_size=self.config['button_font_size'],
+                    font_weight="bold",
+                    flex=1
+                )
+            )
+
+            btn_elimina = toga.Button(
+                "🗑️ ELIMINA",
+                on_press=lambda w: self.conferma_eliminazione_allenamento(allenamento['id']),
+                style=Pack(
+                    padding=self.config['padding_medium'],
+                    height=self.config['button_height'],
+                    background_color="#e74c3c",
+                    color="#ffffff",
+                    font_size=self.config['button_font_size'],
+                    font_weight="bold",
+                    flex=1
+                )
+            )
+
+            btn_annulla = toga.Button(
+                "❌ ANNULLA",
+                on_press=lambda w: self.mostra_allenamenti(None),
+                style=Pack(
+                    padding=self.config['padding_medium'],
+                    height=self.config['button_height'],
+                    background_color="#95a5a6",
+                    color="#ffffff",
+                    font_size=self.config['button_font_size'],
+                    flex=1
+                )
+            )
+
+            buttons_box.add(btn_salva)
+            buttons_box.add(btn_elimina)
+            buttons_box.add(btn_annulla)
+            dialog_container.add(buttons_box)
+
+            # Mostra il dialog
+            self.dynamic_content.clear()
+            self.dynamic_content.add(dialog_container)
+            print("📅 DEBUG MODIFICA: Form modifica allenamento creato e mostrato")
+
+        except Exception as e:
+            print(f"📅 DEBUG MODIFICA: Errore in modifica_allenamento: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            self.mostra_messaggio_errore(f"Errore nell'apertura del form di modifica: {str(e)}")
+
+    def conferma_eliminazione_allenamento(self, allenamento_id):
+        """Mostra un dialog di conferma per l'eliminazione dell'allenamento"""
+        print(f"📅 DEBUG ELIMINA: Richiesta conferma eliminazione allenamento ID {allenamento_id}")
+
+        # Pulisce il contenuto e mostra il dialog di conferma
+        self.dynamic_content.clear()
+
+        dialog_container = toga.Box(style=Pack(direction=COLUMN, padding=self.config['content_padding']))
+
+        # Titolo
+        title = toga.Label(
+            "🗑️ CONFERMA ELIMINAZIONE",
+            style=Pack(
+                font_size=self.config['title_font_size'],
+                font_weight="bold",
+                color="#2c3e50",
+                text_align=CENTER,
+                padding=self.config['padding_large']
+            )
+        )
+        dialog_container.add(title)
+
+        # Messaggio di avviso
+        avviso = toga.Label(
+            "⚠️ ATTENZIONE: Questa azione è irreversibile!\n\n"
+            "Eliminando questo allenamento verranno perse anche:\n"
+            "• Tutte le presenze registrate\n"
+            "• Tutte le assenze giustificate\n\n"
+            "Sei sicuro di voler procedere?",
+            style=Pack(
+                font_size=self.config['label_font_size'],
+                color="#e74c3c",
+                text_align=CENTER,
+                padding=self.config['padding_medium']
+            )
+        )
+        dialog_container.add(avviso)
+
+        # Pulsanti
+        buttons_box = toga.Box(style=Pack(direction=ROW, padding=self.config['padding_large']))
+
+        btn_conferma = toga.Button(
+            "�️ SÌ, ELIMINA",
+            on_press=lambda w: self.elimina_allenamento(allenamento_id),
+            style=Pack(
+                padding=self.config['padding_medium'],
+                height=self.config['button_height'],
+                background_color="#e74c3c",
+                color="#ffffff",
+                font_size=self.config['button_font_size'],
+                font_weight="bold",
+                flex=1
+            )
+        )
+
+        btn_annulla = toga.Button(
+            "❌ ANNULLA",
+            on_press=lambda w: self.modifica_allenamento(self.allenamento_in_modifica),
+            style=Pack(
+                padding=self.config['padding_medium'],
+                height=self.config['button_height'],
+                background_color="#27ae60",
+                color="#ffffff",
+                font_size=self.config['button_font_size'],
+                font_weight="bold",
+                flex=1
+            )
+        )
+
+        buttons_box.add(btn_conferma)
+        buttons_box.add(btn_annulla)
+        dialog_container.add(buttons_box)
+
+        self.dynamic_content.add(dialog_container)
+        print("📅 DEBUG ELIMINA: Dialog di conferma creato")
+
+    def elimina_allenamento(self, allenamento_id):
+        """Elimina definitivamente l'allenamento"""
+        print(f"📅 DEBUG ELIMINA: Eliminazione allenamento ID {allenamento_id}")
+
+        try:
+            # Elimina dal database
+            successo = self.supabase_db.elimina_allenamento(allenamento_id)
+
+            if successo:
+                print("📅 DEBUG ELIMINA: Allenamento eliminato con successo")
+                self.mostra_messaggio_successo("Allenamento eliminato con successo!")
+                # Aggiorna il calendario e torna alla vista principale
+                self.aggiorna_calendario_settimanale()
+                self.mostra_allenamenti(None)
+            else:
+                print("📅 DEBUG ELIMINA: Errore nell'eliminazione")
+                self.mostra_messaggio_errore("Errore nell'eliminazione dell'allenamento")
+
+        except Exception as e:
+            print(f"📅 DEBUG ELIMINA: Errore durante l'eliminazione: {str(e)}")
+            self.mostra_messaggio_errore(f"Errore: {str(e)}")
     
     def mostra_messaggio_errore(self, messaggio):
         """Mostra un messaggio di errore"""
@@ -3668,7 +4675,8 @@ class JBKGestione(toga.App):
             direction=COLUMN,
             padding=10,
             flex=1,
-            background_color="#f8f9fa"
+            background_color="#f8f9fa",
+            align_items=CENTER
         ))
         
         # Titolo principale
@@ -3793,7 +4801,8 @@ class JBKGestione(toga.App):
         main_container = toga.Box(style=Pack(
             direction=COLUMN,
             padding=5,
-            flex=1
+            flex=1,
+            align_items=CENTER
         ))
         
         # Titolo principale
@@ -3831,7 +4840,7 @@ class JBKGestione(toga.App):
                 color="#2c3e50",
                 text_align=CENTER,
                 padding=5,
-                background_color="#e8f4fd"
+                background_color="#ffcccc"
             )
         )
         left_box.add(left_title)
@@ -3859,7 +4868,7 @@ class JBKGestione(toga.App):
                 color="#2c3e50",
                 text_align=CENTER,
                 padding=5,
-                background_color="#e8f5e8"
+                background_color="#ffcccc"
             )
         )
         right_box.add(right_title)
@@ -3916,7 +4925,7 @@ class JBKGestione(toga.App):
                 font_size=self.config['button_font_size'],
                 font_weight="bold",
                 color="#ffffff",
-                background_color="#3498db",
+                background_color="#d32f2f",
                 text_align=CENTER,
                 padding=15
             )
@@ -3983,8 +4992,7 @@ class JBKGestione(toga.App):
         container = toga.Box(style=Pack(
             direction=COLUMN,  # Cambiato da ROW a COLUMN per test
             padding=10,
-            flex=1,
-            background_color="#ff0000"  # ROSSO per vedere se il container principale esiste
+            flex=1
         ))
         
         # SOLO COLONNA SINISTRA per test
@@ -4136,8 +5144,8 @@ class JBKGestione(toga.App):
         
         try:
             # Ottieni tutti i giocatori
-            giocatori_service = GiocatoriService(self.db_manager)
-            giocatori = giocatori_service.ottieni_tutti_giocatori()
+            # RIMOSSO: GiocatoriService (solo Supabase)
+            giocatori = self.supabase_db.ottieni_tutti_giocatori()
             
             print(f"⭐ DEBUG VALUTAZIONE: Trovati {len(giocatori)} giocatori")
             print(f"⭐ DEBUG VALUTAZIONE: Container esistente: {self.lista_giocatori_content is not None}")
@@ -4245,7 +5253,7 @@ class JBKGestione(toga.App):
             style=Pack(
                 width=-1,
                 height=70,
-                background_color="#3498db",
+                background_color="#d32f2f",
                 color="#ffffff",
                 font_size=self.config['label_font_size'],
                 padding=8,
@@ -4330,8 +5338,8 @@ class JBKGestione(toga.App):
         header_box = toga.Box(style=Pack(
             direction=COLUMN,
             padding=self.config['padding_medium'],
-            background_color="#3498db",
-            alignment=CENTER
+            background_color="#d32f2f",
+            align_items=CENTER
         ))
         
         nome_label = toga.Label(
@@ -4379,10 +5387,14 @@ class JBKGestione(toga.App):
         }
         
         try:
-            # Statistiche allenamenti
-            allenamenti_service = AllenamentiService(self.db_manager)
-            tutti_allenamenti = allenamenti_service.ottieni_tutti_allenamenti()
-            
+            # Statistiche allenamenti filtrate per categoria utente
+            import json
+            from jbkgestione.supabase_auth import auth_service
+            categorie_utente = json.loads(auth_service.current_user_categories) if hasattr(auth_service, 'current_user_categories') else []
+            if hasattr(self.supabase_db, 'ottieni_allenamenti_per_categorie'):
+                tutti_allenamenti = self.supabase_db.ottieni_allenamenti_per_categorie(categorie_utente)
+            else:
+                tutti_allenamenti = self.supabase_db.ottieni_tutti_allenamenti()
             statistiche['totale_allenamenti'] = len(tutti_allenamenti)
             
             # Conta presenze e assenze
@@ -4423,17 +5435,20 @@ class JBKGestione(toga.App):
                 statistiche['percentuale_presenze'] = (statistiche['presenze'] / statistiche['totale_allenamenti']) * 100
             
             # STATISTICHE PARTITE E CONVOCAZIONI
-            partite_service = PartiteService(self.db_manager)
-            convocati_service = ConvocatiService(self.db_manager)
+            # RIMOSSO: PartiteService (solo Supabase)
+            # RIMOSSO: ConvocatiService (solo Supabase)
             
-            # Ottieni tutte le partite
-            tutte_partite = partite_service.ottieni_tutte_partite()
+            # Ottieni tutte le partite filtrate per categoria utente
+            if hasattr(self.supabase_db, 'ottieni_partite_per_categorie'):
+                tutte_partite = self.supabase_db.ottieni_partite_per_categorie(categorie_utente)
+            else:
+                tutte_partite = self.supabase_db.ottieni_tutte_partite()
             statistiche['totale_partite'] = len(tutte_partite)
             
             # Conta convocazioni e partite giocate
             for partita in tutte_partite:
                 # Controlla se è stato convocato
-                convocati = convocati_service.ottieni_convocati_partita(partita['id'])
+                convocati = self.supabase_db.ottieni_convocati_partita(partita['id'])
                 convocato_data = next((c for c in convocati if c['giocatore_id'] == giocatore_id), None)
                 
                 if convocato_data:
@@ -4453,27 +5468,15 @@ class JBKGestione(toga.App):
                 statistiche['percentuale_convocazioni'] = (statistiche['convocazioni'] / statistiche['totale_partite']) * 100
             
             # STATISTICHE INDIVIDUALI DALLE PARTITE (VAL e +/-)
-            statistiche_service = StatisticheService(self.db_manager)
+            # RIMOSSO: StatisticheService (solo Supabase)
             
             # Ottieni tutte le statistiche individuali del giocatore
-            tutte_statistiche_giocatore = []
-            try:
-                conn = sqlite3.connect(self.db_manager.db_path)
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT valutazione, plus_minus 
-                    FROM statistiche_giocatori 
-                    WHERE giocatore_id = ? AND (valutazione > 0 OR plus_minus != 0)
-                """, (giocatore_id,))
-                tutte_statistiche_giocatore = cursor.fetchall()
-                conn.close()
-            except Exception as e:
-                print(f"⭐ DEBUG: Errore lettura statistiche individuali: {e}")
+            tutte_statistiche_giocatore = self.supabase_db.ottieni_tutte_statistiche_giocatore(giocatore_id)
             
             # Calcola medie delle valutazioni individuali
             if tutte_statistiche_giocatore:
-                valutazioni = [s[0] for s in tutte_statistiche_giocatore if s[0] > 0]
-                plus_minus_values = [s[1] for s in tutte_statistiche_giocatore]
+                valutazioni = [s.get('valutazione', 0) for s in tutte_statistiche_giocatore if s.get('valutazione', 0) > 0]
+                plus_minus_values = [s.get('plus_minus', 0) for s in tutte_statistiche_giocatore]
                 
                 statistiche['numero_valutazioni'] = len(valutazioni)
                 statistiche['valutazione_media'] = sum(valutazioni) / len(valutazioni) if valutazioni else 0.0
@@ -4751,7 +5754,7 @@ class JBKGestione(toga.App):
         try:
             # Ottieni tutti i giocatori attivi
             print(f"🔍 DEBUG: Ottenendo giocatori disponibili...")
-            giocatori_disponibili = self.giocatori_service.ottieni_tutti_giocatori()
+            giocatori_disponibili = self.supabase_db.ottieni_tutti_giocatori()
             print(f"🔍 DEBUG: Trovati {len(giocatori_disponibili)} giocatori disponibili")
             
             if not giocatori_disponibili:
@@ -4761,33 +5764,34 @@ class JBKGestione(toga.App):
             
             # Ottieni convocati attuali
             print(f"🔍 DEBUG: Ottenendo convocati attuali per partita ID {partita['id']}...")
-            convocati_attuali = self.convocati_service.ottieni_convocati_partita(partita['id'])
+            convocati_attuali = self.supabase_db.ottieni_convocati_partita(partita['id'])
             print(f"🔍 DEBUG: Trovati {len(convocati_attuali)} convocati attuali")
             convocati_ids = {c['giocatore_id'] for c in convocati_attuali}
             print(f"🔍 DEBUG: IDs convocati: {convocati_ids}")
             
             # Crea la finestra di selezione
             print(f"🔍 DEBUG: Creando interfaccia dialog convocati...")
+            dialog = toga.Window(title=f"👥 Convocati per: {partita['avversario']}", size=(400, 600))
             dialog_box = toga.Box(style=Pack(direction=COLUMN, padding=15))
             
             # Titolo
             title_label = toga.Label(
                 f"👥 Convocati per: {partita['avversario']}",
-                style=Pack(padding=(0, 0, 15, 0), font_size=16, font_weight="bold")
+                style=Pack(padding=(0, 0, 15, 0), font_size=16, font_weight="bold", color="#ffffff")
             )
             dialog_box.add(title_label)
             
             # Info partita
             info_label = toga.Label(
-                f"📅 {partita['data']} {partita['ora']} - {partita.get('tipologia', 'stagione regolare').title()}",
-                style=Pack(padding=(0, 0, 10, 0), color="#666666")
+                f"📅 {partita['data']} {partita['ora']} - Stagione Regolare",
+                style=Pack(padding=(0, 0, 10, 0), color="#ffffff")
             )
             dialog_box.add(info_label)
             
             # Contatore convocati
             count_label = toga.Label(
                 f"Convocati selezionati: {len(convocati_ids)}/12",
-                style=Pack(padding=(0, 0, 10, 0), font_weight="bold")
+                style=Pack(padding=(0, 0, 10, 0), font_weight="bold", color="#ffffff")
             )
             dialog_box.add(count_label)
             
@@ -4830,12 +5834,12 @@ class JBKGestione(toga.App):
                 
                 giocatore_label = toga.Label(
                     f"{numero_maglia} {nome_completo}",
-                    style=Pack(flex=1, padding=5)
+                    style=Pack(flex=1, padding=5, color="#ffffff")
                 )
                 
                 # Label per i checkbox
-                convocato_label = toga.Label("Conv.", style=Pack(padding=2, font_size=10))
-                rifiutata_label = toga.Label("Rif.", style=Pack(padding=2, font_size=10, color="#e74c3c"))
+                convocato_label = toga.Label("Conv.", style=Pack(padding=2, font_size=10, color="#ffffff"))
+                rifiutata_label = toga.Label("Rif.", style=Pack(padding=2, font_size=10, color="#ffffff"))
                 
                 # Indicatore idoneità
                 idoneita_icon = "✅" if giocatore.get('idoneita_sportiva') else "⚠️"
@@ -4865,7 +5869,7 @@ class JBKGestione(toga.App):
                 if selezionati > 12:
                     count_label.style.color = "#f44336"  # Rosso se troppi
                 else:
-                    count_label.style.color = "#000000"  # Nero normale
+                    count_label.style.color = "#ffffff"  # Bianco normale
             
             # Gestione interdipendenza checkbox (se non convocato, non può essere rifiutato)
             def gestisci_checkbox_convocato(giocatore_id, checkbox_convocato, checkbox_rifiutata):
@@ -4913,10 +5917,11 @@ class JBKGestione(toga.App):
             self.convocati_giocatori = giocatori_disponibili
             self.convocati_partita_id = partita['id']
             
-            # Mostra il dialog (simulato con aggiornamento del contenuto principale)
-            print(f"🔍 DEBUG: Mostrando dialog convocati - sostituendo contenuto dynamic_content")
-            self.dynamic_content.clear()
-            self.dynamic_content.add(dialog_box)
+            # Mostra il dialog (finestra separata)
+            print(f"🔍 DEBUG: Mostrando dialog convocati - finestra separata")
+            dialog.content = dialog_box
+            dialog.show()
+            self.dialog_convocati_corrente = dialog
             print(f"🔍 DEBUG: Dialog convocati mostrato con successo!")
             
         except Exception as e:
@@ -4943,8 +5948,13 @@ class JBKGestione(toga.App):
                 is_rifiutata = cb_data['rifiutata'].value
                 
                 if is_convocato:
-                    giocatore_convocato = giocatore.copy()
-                    giocatore_convocato['rifiutata'] = is_rifiutata
+                    # Crea un oggetto pulito con solo i campi necessari per la tabella convocati
+                    giocatore_convocato = {
+                        'partita_id': partita_id,
+                        'giocatore_id': giocatore['id'],
+                        'convocato': True,  # Campo obbligatorio per indicare che è convocato
+                        'rifiutata': is_rifiutata
+                    }
                     convocati_data.append(giocatore_convocato)
                     
                     print(f"🔍 DEBUG: Giocatore {giocatore['nome']} {giocatore['cognome']} - Convocato: True, Rifiutata: {is_rifiutata}")
@@ -4958,7 +5968,7 @@ class JBKGestione(toga.App):
             
             # Aggiorna i convocati nel database
             print(f"🔍 DEBUG: Salvando {len(convocati_data)} convocati nel database...")
-            success = self.convocati_service.aggiorna_convocati_partita(partita_id, convocati_data)
+            success = self.supabase_db.aggiorna_convocati_partita(partita_id, convocati_data)
             print(f"🔍 DEBUG: Risultato salvataggio: {success}")
             
             if success:
@@ -4978,6 +5988,9 @@ class JBKGestione(toga.App):
                 # Torna alla vista partite
                 print(f"🔍 DEBUG: Tornando alla vista partite...")
                 self.mostra_partite(None)
+                # Chiudi il dialog
+                if hasattr(self, 'dialog_convocati_corrente'):
+                    self.dialog_convocati_corrente.close()
             else:
                 print(f"🔍 DEBUG: Errore nel salvataggio dei convocati")
                 self.mostra_errore("Errore nel salvataggio dei convocati")
@@ -4989,15 +6002,17 @@ class JBKGestione(toga.App):
             self.mostra_errore(f"Errore nel salvataggio: {str(e)}")
     
     def chiudi_dialog_convocati(self):
-        """Chiude il dialog convocati e torna alla vista partite"""
-        self.mostra_partite(None)
+        """Chiude il dialog convocati"""
+        if hasattr(self, 'dialog_convocati_corrente'):
+            self.dialog_convocati_corrente.close()
     
     def modifica_partita(self, partita):
         """Apre il dialog per modificare una partita"""
         print(f"✏️ DEBUG: modifica_partita chiamato per partita: {partita}")
         
         try:
-            # Crea un dialog per la modifica
+            # Crea una finestra separata per il dialog di modifica
+            dialog = toga.Window(title=f"✏️ Modifica Partita vs {partita['avversario']}", size=(450, 600))
             dialog_box = toga.Box(style=Pack(direction=COLUMN, padding=20))
             
             # Titolo
@@ -5033,7 +6048,7 @@ class JBKGestione(toga.App):
             )
             
             # Opzioni casa/trasferta (comportamento radio button)
-            is_in_casa = partita.get('in_casa', True)
+            is_in_casa = partita.get('casa_trasferta', 'casa') == 'casa'
             
             casa_switch = toga.Switch(
                 text="🏠 Partita in casa",
@@ -5133,14 +6148,14 @@ class JBKGestione(toga.App):
                     ora_input.value,
                     luogo_input.value,
                     casa_switch.value,  # True se in casa
-                    tipologia_selection.value,
                     risultato_nostro,
                     risultato_avversario,
-                    note_input.value
+                    note_input.value,
+                    tipologia_selection.value
                 )
             
             def annulla_modifiche(widget):
-                self.mostra_partite(None)
+                dialog.close()
             
             salva_button = toga.Button(
                 "💾 Salva",
@@ -5168,9 +6183,12 @@ class JBKGestione(toga.App):
             buttons_box.add(annulla_button)
             dialog_box.add(buttons_box)
             
-            # Pulisce il contenuto e mostra il dialog
-            self.dynamic_content.clear()
-            self.dynamic_content.add(dialog_box)
+            # Salva riferimento al dialog per poterlo chiudere dopo il salvataggio
+            self.dialog_modifica_partita_corrente = dialog
+            
+            # Mostra il dialog come finestra separata
+            dialog.content = dialog_box
+            dialog.show()
             
         except Exception as e:
             print(f"✏️ DEBUG: ERRORE in modifica_partita: {str(e)}")
@@ -5178,10 +6196,14 @@ class JBKGestione(toga.App):
             traceback.print_exc()
             self.mostra_errore(f"Errore nell'apertura del dialog di modifica: {str(e)}")
     
-    def salva_partita_modificata(self, partita_id, avversario, data, ora, luogo, in_casa, tipologia, risultato_nostro, risultato_avversario, note):
+    def salva_partita_modificata(self, partita_id, avversario, data, ora, luogo, in_casa, risultato_nostro, risultato_avversario, note, tipologia):
         """Salva le modifiche alla partita"""
         print(f"✏️ DEBUG: salva_partita_modificata chiamato")
         print(f"✏️ DEBUG: partita_id: {partita_id}")
+        print(f"✏️ DEBUG: avversario: '{avversario}', data: '{data}', ora: '{ora}'")
+        print(f"✏️ DEBUG: luogo: '{luogo}', in_casa: {in_casa}")
+        print(f"✏️ DEBUG: risultato_nostro: '{risultato_nostro}', risultato_avversario: '{risultato_avversario}'")
+        print(f"✏️ DEBUG: tipologia: '{tipologia}'")
         
         try:
             # Validazione input
@@ -5190,30 +6212,45 @@ class JBKGestione(toga.App):
                 return
             
             # Crea oggetto partita aggiornato
-            from .models import Partita
-            partita_aggiornata = Partita(
-                data=data,
-                ora=ora,
-                avversario=avversario,
-                luogo=luogo or "",
-                in_casa=in_casa,
-                tipologia=tipologia
-            )
-            # Imposta risultati e altri attributi
-            partita_aggiornata.risultato_nostro = risultato_nostro
-            partita_aggiornata.risultato_avversario = risultato_avversario
-            partita_aggiornata.note = note or ""
-            partita_aggiornata.formazione = []  # Mantiene formazione esistente
-            partita_aggiornata.statistiche = {}  # Mantiene statistiche esistenti
+            # RIMOSSO: import Partita (solo Supabase)
+            partita_aggiornata = {
+                'data': data,
+                'ora': ora,
+                'avversario': avversario,
+                'luogo': luogo or "",
+                'casa_trasferta': 'casa' if in_casa else 'trasferta',
+                'tipologia': tipologia or 'stagione regolare',
+                'note': note or ""
+            }
+            
+            # Gestisci risultati - non includere se sono None per evitare problemi con INTEGER nullable
+            if risultato_nostro and risultato_nostro != 'None':
+                try:
+                    partita_aggiornata['risultato_nostro'] = int(risultato_nostro)
+                except (ValueError, TypeError):
+                    pass  # Non includere se non è un numero valido
+            
+            if risultato_avversario and risultato_avversario != 'None':
+                try:
+                    partita_aggiornata['risultato_avversario'] = int(risultato_avversario)
+                except (ValueError, TypeError):
+                    pass  # Non includere se non è un numero valido
+            
+            print(f"✏️ DEBUG: Oggetto partita_aggiornata creato: {partita_aggiornata}")
             
             # Aggiorna nel database
-            success = self.partite_service.aggiorna_partita(partita_id, partita_aggiornata)
+            success = self.supabase_db.aggiorna_partita(partita_id, partita_aggiornata)
+            
+            print(f"✏️ DEBUG: Risultato update: {success}")
             
             if success:
                 self.mostra_successo("Partita aggiornata con successo!")
                 # Aggiorna la sidebar
                 if hasattr(self, 'sidebar_giocatori_content'):
                     self.aggiorna_sidebar()
+                # Chiudi il dialog
+                if hasattr(self, 'dialog_modifica_partita_corrente'):
+                    self.dialog_modifica_partita_corrente.close()
                 # Torna alla vista partite
                 self.mostra_partite(None)
             else:
@@ -5327,7 +6364,8 @@ class JBKGestione(toga.App):
         print(f"➕ DEBUG: mostra_form_nuova_partita chiamato con tipologia: {tipologia}")
         
         try:
-            # Crea un dialog per l'aggiunta
+            # Crea il dialog come finestra separata
+            dialog = toga.Window(title=f"➕ Nuova Partita {tipologia_nome.get(tipologia, tipologia.title())}", size=(400, 500))
             dialog_box = toga.Box(style=Pack(direction=COLUMN, padding=20))
             
             # Titolo con tipologia
@@ -5429,12 +6467,11 @@ class JBKGestione(toga.App):
                     ora_input.value,
                     luogo_input.value,
                     casa_switch.value,  # True se in casa
-                    tipologia,
                     note_input.value
                 )
             
             def annulla_creazione(widget):
-                self.mostra_partite(None)
+                dialog.close()
             
             salva_button = toga.Button(
                 "💾 Crea Partita",
@@ -5462,9 +6499,10 @@ class JBKGestione(toga.App):
             buttons_box.add(annulla_button)
             dialog_box.add(buttons_box)
             
-            # Pulisce il contenuto e mostra il dialog
-            self.dynamic_content.clear()
-            self.dynamic_content.add(dialog_box)
+            # Mostra il dialog
+            dialog.content = dialog_box
+            dialog.show()
+            self.dialog_partita_corrente = dialog
             
         except Exception as e:
             print(f"➕ DEBUG: ERRORE in mostra_form_nuova_partita: {str(e)}")
@@ -5472,10 +6510,10 @@ class JBKGestione(toga.App):
             traceback.print_exc()
             self.mostra_errore(f"Errore nel form nuova partita: {str(e)}")
     
-    def salva_partita_creata(self, avversario, data, ora, luogo, in_casa, tipologia, note):
+    def salva_partita_creata(self, avversario, data, ora, luogo, in_casa, note):
         """Salva la nuova partita creata"""
         print(f"➕ DEBUG: salva_partita_creata chiamato")
-        print(f"➕ DEBUG: tipologia: {tipologia}")
+        print(f"➕ DEBUG: casa_trasferta: {'casa' if in_casa else 'trasferta'}")
         
         try:
             # Validazione input
@@ -5484,24 +6522,21 @@ class JBKGestione(toga.App):
                 return
             
             # Crea oggetto partita
-            from .models import Partita
-            nuova_partita = Partita(
-                data=data,
-                ora=ora,
-                avversario=avversario,
-                luogo=luogo or "",
-                in_casa=in_casa,
-                tipologia=tipologia
-            )
-            # Imposta attributi aggiuntivi
-            nuova_partita.risultato_nostro = None
-            nuova_partita.risultato_avversario = None
-            nuova_partita.note = note or ""
-            nuova_partita.formazione = []
-            nuova_partita.statistiche = {}
+            # RIMOSSO: import Partita (solo Supabase)
+            nuova_partita = {
+                'data': data,
+                'ora': ora,
+                'avversario': avversario,
+                'luogo': luogo or "",
+                'casa_trasferta': 'casa' if in_casa else 'trasferta',
+                'risultato_nostro': None,
+                'risultato_avversario': None,
+                'tipologia': getattr(self, 'tipologia_corrente', 'stagione regolare'),
+                'note': note or ""
+            }
             
             # Salva nel database
-            success = self.partite_service.aggiungi_partita(nuova_partita)
+            success = self.supabase_db.aggiungi_partita(nuova_partita)
             
             if success:
                 self.mostra_successo("Nuova partita creata con successo!")
@@ -5510,9 +6545,9 @@ class JBKGestione(toga.App):
                     self.aggiorna_sidebar()
                 # Torna alla vista partite
                 self.mostra_partite(None)
-                # Filtra per la tipologia appena aggiunta se non era "tutte"
-                if tipologia != "tutte":
-                    self.filtra_partite(tipologia)
+                # Chiudi il dialog
+                if hasattr(self, 'dialog_partita_corrente'):
+                    self.dialog_partita_corrente.close()
             else:
                 self.mostra_errore("Errore nella creazione della partita")
                 
@@ -5528,7 +6563,7 @@ class JBKGestione(toga.App):
         
         try:
             # Ottieni i convocati per questa partita
-            convocati = self.statistiche_individuali_service.ottieni_convocati_partita(partita['id'])
+            convocati = self.supabase_db.ottieni_convocati_partita(partita['id'])
             print(f"📊 DEBUG: Trovati {len(convocati)} convocati")
             
             if not convocati:
@@ -5536,10 +6571,11 @@ class JBKGestione(toga.App):
                 return
             
             # Ottieni statistiche esistenti
-            statistiche_esistenti = self.statistiche_individuali_service.ottieni_statistiche_partita(partita['id'])
+            statistiche_esistenti = self.supabase_db.ottieni_statistiche_partita(partita['id'])
             stats_dict = {s['giocatore_id']: s for s in statistiche_esistenti}
             
             # Crea l'interfaccia per inserire le statistiche
+            dialog = toga.Window(title=f"📊 Statistiche Individuali: {partita['avversario']}", size=(500, 600))
             dialog_box = toga.Box(style=Pack(direction=COLUMN, padding=15))
             
             # Titolo
@@ -5551,13 +6587,13 @@ class JBKGestione(toga.App):
             
             # Info partita
             info_label = toga.Label(
-                f"📅 {partita['data']} {partita['ora']} - {partita.get('tipologia', 'stagione regolare').title()}",
+                f"📅 {partita['data']} {partita['ora']} - Stagione Regolare",
                 style=Pack(padding=(0, 0, 10, 0), color="#666666")
             )
             dialog_box.add(info_label)
             
             # Header colonne statistiche
-            header_box = toga.Box(style=Pack(direction=ROW, padding=5, background_color="#f0f0f0"))
+            header_box = toga.Box(style=Pack(direction=ROW, padding=5))
             
             headers = ["Giocatore", "Pt", "PP", "PR", "STP", "RMB", "AS", "VAL", "+/-"]
             header_widths = [120, 35, 35, 35, 35, 35, 35, 35, 35]  # Allineate ai campi input
@@ -5587,15 +6623,15 @@ class JBKGestione(toga.App):
             self.stats_inputs = {}
             
             for convocato in convocati:
-                giocatore_id = convocato['id']
+                giocatore_id = convocato['giocatore_id']
                 stats_esistenti = stats_dict.get(giocatore_id, {})
                 
                 # Box per ogni giocatore
                 player_row = toga.Box(style=Pack(direction=ROW, padding=3))
                 
                 # Nome giocatore
-                numero = f"#{convocato['numero_maglia']}" if convocato['numero_maglia'] else "#--"
-                nome_display = f"{numero} {convocato['nome'][:8]}.{convocato['cognome'][:8]}."
+                numero = f"#{convocato['giocatori']['numero_maglia']}" if convocato['giocatori']['numero_maglia'] else "#--"
+                nome_display = f"{numero} {convocato['giocatori']['nome'][:8]}.{convocato['giocatori']['cognome'][:8]}."
                 
                 name_label = toga.Label(
                     nome_display,
@@ -5651,8 +6687,9 @@ class JBKGestione(toga.App):
             
             # Mostra il dialog
             print(f"📊 DEBUG: Mostrando dialog statistiche")
-            self.dynamic_content.clear()
-            self.dynamic_content.add(dialog_box)
+            dialog.content = dialog_box
+            dialog.show()
+            self.dialog_statistiche_corrente = dialog
             print(f"📊 DEBUG: Dialog statistiche mostrato con successo!")
             
         except Exception as e:
@@ -5686,7 +6723,7 @@ class JBKGestione(toga.App):
                         stats[field] = 0
                 
                 # Salva le statistiche per questo giocatore
-                if self.statistiche_individuali_service.salva_statistica_giocatore(partita_id, giocatore_id, stats):
+                if self.supabase_db.aggiorna_statistiche_giocatore(partita_id, giocatore_id, stats):
                     success_count += 1
                     print(f"📊 DEBUG: Statistiche salvate per giocatore {giocatore_id}")
                 else:
@@ -5695,6 +6732,9 @@ class JBKGestione(toga.App):
             if success_count > 0:
                 self.mostra_successo(f"Statistiche salvate per {success_count} giocatori!")
                 self.chiudi_dialog_statistiche()
+                # Chiudi il dialog
+                if hasattr(self, 'dialog_statistiche_corrente'):
+                    self.dialog_statistiche_corrente.close()
             else:
                 self.mostra_errore("Nessuna statistica è stata salvata")
                 
@@ -5705,8 +6745,9 @@ class JBKGestione(toga.App):
             self.mostra_errore(f"Errore nel salvataggio statistiche: {str(e)}")
     
     def chiudi_dialog_statistiche(self):
-        """Chiude il dialog statistiche e torna alla vista partite"""
-        self.mostra_partite(None)
+        """Chiude il dialog statistiche"""
+        if hasattr(self, 'dialog_statistiche_corrente'):
+            self.dialog_statistiche_corrente.close()
 
 
 def main():

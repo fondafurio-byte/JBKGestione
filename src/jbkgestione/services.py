@@ -370,6 +370,33 @@ class PartiteService:
 
 
 class AllenamentiService:
+    def ottieni_allenamenti_per_categorie(self, categorie: list) -> list:
+        """Ottiene tutti gli allenamenti filtrati per categoria (lista di stringhe)"""
+        if not categorie:
+            return []
+        conn = sqlite3.connect(self.db_manager.db_path)
+        cursor = conn.cursor()
+        placeholders = ','.join('?' for _ in categorie)
+        query = f"SELECT * FROM allenamenti WHERE categoria IN ({placeholders}) ORDER BY data DESC, ora_inizio DESC"
+        cursor.execute(query, categorie)
+        rows = cursor.fetchall()
+        allenamenti = []
+        for row in rows:
+            allenamento = {
+                'id': row[0],
+                'data': row[1],
+                'ora_inizio': row[2],
+                'ora_fine': row[3],
+                'luogo': row[4],
+                'tipo': row[5],
+                'descrizione': row[6],
+                'presenze': json.loads(row[7]) if row[7] else [],
+                'note': row[8],
+                'categoria': row[9] if len(row) > 9 else None
+            }
+            allenamenti.append(allenamento)
+        conn.close()
+        return allenamenti
     """Servizio per la gestione degli allenamenti"""
     
     def __init__(self, db_manager: DatabaseManager):

@@ -10,7 +10,8 @@ CREATE TABLE public.profiles (
     email TEXT UNIQUE NOT NULL,
     username TEXT UNIQUE NOT NULL,
     full_name TEXT,
-    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'edit', 'user', 'coach', 'atleta')),
+    categories JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -26,7 +27,15 @@ CREATE POLICY "Users can update own profile" ON public.profiles
     FOR UPDATE USING (auth.uid() = id);
 
 CREATE POLICY "Admins can view all profiles" ON public.profiles
-    FOR ALL USING (
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update all profiles" ON public.profiles
+    FOR UPDATE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -58,8 +67,24 @@ ALTER TABLE public.giocatori ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Everyone can view giocatori" ON public.giocatori
     FOR SELECT USING (true);
 
-CREATE POLICY "Only admins can modify giocatori" ON public.giocatori
-    FOR ALL USING (
+CREATE POLICY "Admins can insert giocatori" ON public.giocatori
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update giocatori" ON public.giocatori
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete giocatori" ON public.giocatori
+    FOR DELETE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -75,6 +100,7 @@ CREATE TABLE public.allenamenti (
     ora TIME,
     luogo TEXT,
     tipo TEXT DEFAULT 'allenamento',
+    categoria TEXT,
     note TEXT,
     presenze JSONB DEFAULT '[]'::jsonb,
     assenze_giustificate JSONB DEFAULT '[]'::jsonb,
@@ -89,8 +115,24 @@ ALTER TABLE public.allenamenti ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Everyone can view allenamenti" ON public.allenamenti
     FOR SELECT USING (true);
 
-CREATE POLICY "Only admins can modify allenamenti" ON public.allenamenti
-    FOR ALL USING (
+CREATE POLICY "Admins can insert allenamenti" ON public.allenamenti
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update allenamenti" ON public.allenamenti
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete allenamenti" ON public.allenamenti
+    FOR DELETE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -107,6 +149,7 @@ CREATE TABLE public.partite (
     avversario TEXT NOT NULL,
     luogo TEXT,
     casa_trasferta TEXT DEFAULT 'casa' CHECK (casa_trasferta IN ('casa', 'trasferta')),
+    categoria TEXT,
     risultato_nostro INTEGER,
     risultato_avversario INTEGER,
     note TEXT,
@@ -121,8 +164,24 @@ ALTER TABLE public.partite ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Everyone can view partite" ON public.partite
     FOR SELECT USING (true);
 
-CREATE POLICY "Only admins can modify partite" ON public.partite
-    FOR ALL USING (
+CREATE POLICY "Admins can insert partite" ON public.partite
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update partite" ON public.partite
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete partite" ON public.partite
+    FOR DELETE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -150,8 +209,24 @@ ALTER TABLE public.convocati ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Everyone can view convocati" ON public.convocati
     FOR SELECT USING (true);
 
-CREATE POLICY "Only admins can modify convocati" ON public.convocati
-    FOR ALL USING (
+CREATE POLICY "Admins can insert convocati" ON public.convocati
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update convocati" ON public.convocati
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete convocati" ON public.convocati
+    FOR DELETE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -187,8 +262,24 @@ ALTER TABLE public.statistiche_giocatori ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Everyone can view statistiche_giocatori" ON public.statistiche_giocatori
     FOR SELECT USING (true);
 
-CREATE POLICY "Only admins can modify statistiche_giocatori" ON public.statistiche_giocatori
-    FOR ALL USING (
+CREATE POLICY "Admins can insert statistiche_giocatori" ON public.statistiche_giocatori
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update statistiche_giocatori" ON public.statistiche_giocatori
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete statistiche_giocatori" ON public.statistiche_giocatori
+    FOR DELETE USING (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'admin'
@@ -268,9 +359,12 @@ ON CONFLICT DO NOTHING;
 -- 10. INDICI PER PERFORMANCE
 -- ========================================
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_categories ON public.profiles USING GIN(categories);
 CREATE INDEX IF NOT EXISTS idx_giocatori_attivo ON public.giocatori(attivo);
 CREATE INDEX IF NOT EXISTS idx_allenamenti_data ON public.allenamenti(data);
+CREATE INDEX IF NOT EXISTS idx_allenamenti_categoria ON public.allenamenti(categoria);
 CREATE INDEX IF NOT EXISTS idx_partite_data ON public.partite(data);
+CREATE INDEX IF NOT EXISTS idx_partite_categoria ON public.partite(categoria);
 CREATE INDEX IF NOT EXISTS idx_convocati_partita ON public.convocati(partita_id);
 CREATE INDEX IF NOT EXISTS idx_convocati_giocatore ON public.convocati(giocatore_id);
 CREATE INDEX IF NOT EXISTS idx_statistiche_partita ON public.statistiche_giocatori(partita_id);

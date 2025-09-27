@@ -5,6 +5,7 @@ Gestisce login, logout, registrazione e controllo ruoli
 
 import os
 from typing import Optional, Dict, Any
+import json
 from supabase import create_client, Client
 import asyncio
 from datetime import datetime, timedelta
@@ -51,33 +52,39 @@ class SupabaseAuthService:
             if response.user:
                 self.current_user = response.user
                 self.session = response.session
-                
-                # Ottieni il ruolo dell'utente dal profilo
+                # Ottieni ruolo e categorie dal profilo
                 profile_response = self.supabase.table("profiles").select("*").eq("id", response.user.id).execute()
-                
                 if profile_response.data:
                     self.current_user_role = profile_response.data[0]['role']
+                    self.current_user_categories = profile_response.data[0].get('categories', '[]')
                     return {
                         "success": True,
                         "user": response.user,
                         "role": self.current_user_role,
+                        "categories": self.current_user_categories,
                         "message": f"Benvenuto! Accesso come {self.current_user_role}"
                     }
                 else:
                     # Crea profilo se non esiste (primo accesso)
+                    username = response.user.user_metadata.get("username", response.user.email.split('@')[0])
+                    role = response.user.user_metadata.get("role", "user")
+                    categories = response.user.user_metadata.get("categories", "[]")
                     self.supabase.table("profiles").insert({
                         "id": response.user.id,
                         "email": response.user.email,
+                        "username": username,
                         "full_name": response.user.user_metadata.get("full_name", ""),
-                        "role": "user"  # Default role
+                        "role": role,
+                        "categories": categories
                     }).execute()
-                    
-                    self.current_user_role = "user"
+                    self.current_user_role = role
+                    self.current_user_categories = categories
                     return {
                         "success": True,
                         "user": response.user,
-                        "role": "user",
-                        "message": "Primo accesso - Profilo creato come utente"
+                        "role": role,
+                        "categories": categories,
+                        "message": f"Primo accesso - Profilo creato come {role}"
                     }
             
             return {
@@ -107,9 +114,9 @@ class SupabaseAuthService:
             print(f"Errore durante il logout: {str(e)}")
             return False
     
-    def register(self, username: str, email: str, password: str, full_name: str = "") -> Dict[str, Any]:
+    def register(self, username: str, email: str, password: str, full_name: str = "", role: str = "user", categories=None) -> Dict[str, Any]:
         """
-        Registra un nuovo utente
+        Registra un nuovo utente con ruolo e categorie
         Returns: {success: bool, message: str}
         """
         try:
@@ -120,18 +127,27 @@ class SupabaseAuthService:
                     "success": False,
                     "message": "Username già esistente"
                 }
-            
+            if categories is None:
+                categories = []
+            # Limita a massimo 3 categorie per i coach
+            if role == "coach" and len(categories) > 3:
+                return {
+                    "success": False,
+                    "message": "Un coach può selezionare al massimo 3 categorie."
+                }
+            categories_json = json.dumps(categories)
             response = self.supabase.auth.sign_up({
                 "email": email,
                 "password": password,
                 "options": {
                     "data": {
                         "username": username,
-                        "full_name": full_name
+                        "full_name": full_name,
+                        "role": role,
+                        "categories": categories_json
                     }
                 }
             })
-            
             if response.user:
                 # Il profilo verrà creato automaticamente al primo login
                 return {
@@ -143,7 +159,6 @@ class SupabaseAuthService:
                     "success": False,
                     "message": "Errore durante la registrazione"
                 }
-                
         except Exception as e:
             return {
                 "success": False,
@@ -175,16 +190,28 @@ class SupabaseAuthService:
         }
     
     def check_session(self) -> bool:
-        """Controlla se la sessione è ancora valida"""
+        """Controlla se la sessione è ancora valida e ripristina i dati utente"""
         try:
             session = self.supabase.auth.get_session()
             if session and session.access_token:
                 self.session = session
+                self.current_user = session.user
+                
+                # Ripristina il ruolo dell'utente dal profilo
+                if session.user:
+                    profile_response = self.supabase.table("profiles").select("*").eq("id", session.user.id).execute()
+                    if profile_response.data:
+                        self.current_user_role = profile_response.data[0]['role']
+                    else:
+                        # Se non c'è profilo, imposta ruolo default
+                        self.current_user_role = "user"
+                
                 return True
             else:
                 self.logout()
                 return False
-        except:
+        except Exception as e:
+            print(f"Errore nel controllo sessione: {str(e)}")
             self.logout()
             return False
     
